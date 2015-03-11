@@ -135,7 +135,7 @@ int main(void) {
     init.remoteName = "TestConnect";
     init.brandName = "DummyBrand";
     init.modelName = "DummyModel";
-    init.paramt = 8;
+    init.deviceType = kSpDeviceTypeComputer;
     init.error_callback = error_callback;
     init.zero1 = 0;
 

@@ -39,6 +39,18 @@ typedef enum {
 } sp_playback_notify_t;
 
 typedef enum {
+    kSpDeviceTypeUnknown = 0,
+    kSpDeviceTypeComputer = 1,
+    kSpDeviceTypeTablet = 2,
+    kSpDeviceTypeSmartphone = 3,
+    kSpDeviceTypeSpeaker = 4,
+    kSpDeviceTypeTV = 5,
+    kSpDeviceTypeAVR = 6,
+    kSpDeviceTypeSTB = 7,
+    kSpDeviceTypeAudioDongle = 8,
+} sp_device_type_t;
+
+typedef enum {
     SP_SAMPLETYPE_INT16_NATIVE_ENDIAN,
 } sp_sampletype;
 
@@ -58,7 +70,7 @@ struct init_data {
     char *remoteName;
     char *brandName;
     char *modelName;
-    uint32_t paramt; // -t 8
+    uint32_t deviceType; // sp_device_type_t
     void (*error_callback)(sp_err_t err);
     uint32_t zero1;
 };
