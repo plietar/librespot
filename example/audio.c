@@ -23,7 +23,7 @@ int audio_init(void) {
         dup2(fds[0], 0);
         close (fds[0]);
         close (fds[1]);
-        execl("/usr/bin/aplay", "aplay",
+        execlp("aplay", "aplay",
                 "-t", "raw",
                 "-r", "44100",
                 "-f", "S16_LE",
@@ -39,11 +39,12 @@ int audio_init(void) {
     return 0;
 }
 
-void audio_frame(void *frames, uint32_t num_frames, sp_audioformat *format) {
+void audio_frame(const void *frames, uint32_t num_frames, sp_audioformat *format) {
     if (format->sample_type != SP_SAMPLETYPE_INT16_NATIVE_ENDIAN
             || format->sample_rate != 44100
             || format->channels != 2) {
-        printf("Wrong audio format: %d %d %d\n", format->sample_type, format->sample_rate, format->channels);
+        printf("Wrong audio format: %d %d %d\n", format->sample_type,
+                format->sample_rate, format->channels);
     } else {
         write(audio_fd, frames, num_frames * 2);
     }

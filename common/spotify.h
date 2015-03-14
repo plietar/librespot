@@ -2,6 +2,8 @@
 #define SPOTIFY_H
 
 #include <stdint.h>
+#include <stddef.h>
+#include <stdbool.h>
 
 typedef enum {
     kSpErrorOk = 0,
@@ -27,6 +29,7 @@ typedef enum {
 
 typedef enum {
     kSpConnectionNotifyLoggedIn = 0,
+    kSpConnectionNotifyLoggedOut = 1,
 } sp_connection_notify_t;
 
 typedef enum {
@@ -53,6 +56,19 @@ typedef enum {
 typedef enum {
     SP_SAMPLETYPE_INT16_NATIVE_ENDIAN,
 } sp_sampletype;
+
+/* Not sure about the order */
+typedef enum {
+    kSpBitrate160 = 0,
+    kSpBitrate320 = 1,
+    kSpBitrate90 = 2
+} sp_bitrate_t;
+
+typedef enum {
+    kSpImageSize160 = 0,
+    kSpImageSize320 = 1,
+    kSpImageSize640 = 2
+} sp_image_size_t;
 
 typedef struct {
     uint16_t channels;
@@ -84,39 +100,93 @@ struct vars_data {
     char deviceType[0x10];
 };
 
+struct SpMetadata {
+    char data0[0x100];
+    char context_uri[0x80];
+    char track_name[0x100];
+    char track_uri[0x80];
+    char artist_name[0x100];
+    char artist_uri[0x80];
+    char album_name[0x100];
+    char album_uri[0x80];
+    char cover_uri[0x80];
+    uint32_t duration;
+};
+
 struct connection_callbacks {
     void (*notify)(sp_connection_notify_t type, void *userdata);
-    void (*message)(char *msg, void *userdata);
+    void (*message)(const char *msg, void *userdata);
 };
 
 struct playback_callbacks {
     void (*notify)(sp_playback_notify_t type, void *userdata);
-    void (*data)(void *samples, uint32_t num_frames, sp_audioformat *format, void *userdata);
+    void (*data)(const void *samples, uint32_t num_frames,
+            sp_audioformat *format, void *userdata);
     void (*seek)(uint32_t millis, void *userdata);
     void (*volume)(uint16_t volume, void *userdata);
 };
 
 struct debug_callbacks {
-    void (*message)(char *msg, void *userdata);
+    void (*message)(const char *msg, void *userdata);
 };
 
 
-sp_err_t SpInit(struct init_data *config);
+sp_err_t SpInit(const struct init_data *config);
+void SpFree(void);
+
+sp_err_t SpPumpEvents(void);
+
+int SpGetMetadataValidRange(int *start, int *end);
+int SpGetMetadata(struct SpMetadata *, int offset);
+int SpGetMetadataImageURL(const char *uri, sp_image_size_t image_size,
+        char *url, size_t size);
+
+int SpGetPreset(void *, void *);
+void SpSetPreset(void *);
+
+
+sp_err_t SpSetDisplayName(const char *name);
+const char *SpGetLibraryVersion(void);
+
+
 sp_err_t SpZeroConfGetVars(struct vars_data *vars);
 
-sp_err_t SpRegisterConnectionCallbacks(struct connection_callbacks *callbacks,
-        void *userdata);
-sp_err_t SpRegisterPlaybackCallbacks(struct playback_callbacks *callbacks,
-        void *userdata);
-sp_err_t SpRegisterDebugCallbacks(struct debug_callbacks *callbacks,
-        void *userdata);
-/*
- * volume: ranges from 0 to 65535
- */
+
+sp_err_t SpPlaybackPlay(void);
+sp_err_t SpPlaybackPause(void);
+sp_err_t SpPlaybackSkipToNext(void);
+sp_err_t SpPlaybackSkipToPrev(void);
+sp_err_t SpPlaybackSeek(uint32_t millis);
 sp_err_t SpPlaybackUpdateVolume(uint16_t volume);
+uint16_t SpPlaybackGetVolume(void);
+int SpPlaybackIsPlaying(void);
+int SpPlaybackIsShuffled(void);
+int SpPlaybackIsRepeated(void);
+int SpPlaybackIsPlaying(void);
+int SpPlaybackIsActiveDevice(void);
+sp_err_t SpPlaybackEnableSuffle(void);
+sp_err_t SpPlaybackEnableRepeat(void);
+sp_err_t SpPlaybackSetBitrate(sp_bitrate_t bitrate);
+
 sp_err_t SpConnectionLoginPassword(const char *login, const char *password);
 sp_err_t SpConnectionLoginZeroConf(const char *username, const char *blob,
         const char *clientKey);
-sp_err_t SpPumpEvents(void);
+sp_err_t SpConnectionLoginOauthToken(const char *token);
+
+int SpConnectionIsLoggedIn();
+sp_err_t SpConnectionLogout();
+int SpConnectionGetConnectivity();
+sp_err_t SpConnectionSetConnectivity(int x);
+
+
+sp_err_t SpRegisterConnectionCallbacks(
+        const struct connection_callbacks *callbacks, void *userdata);
+sp_err_t SpRegisterPlaybackCallbacks(
+        const struct playback_callbacks *callbacks, void *userdata);
+sp_err_t SpRegisterDebugCallbacks(
+        const struct debug_callbacks *callbacks, void *userdata);
+
+
+
 
 #endif
