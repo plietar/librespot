@@ -2,3 +2,8 @@ main
 spotify_appkey.key
 libspotify_embedded_shared.so
 *.pyc
+*.so
+*.o
+*_pb2.py
+*.swp
+.gdbinit
