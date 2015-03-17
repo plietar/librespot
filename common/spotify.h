@@ -175,8 +175,6 @@ sp_err_t SpConnectionLoginOauthToken(const char *token);
 
 int SpConnectionIsLoggedIn();
 sp_err_t SpConnectionLogout();
-int SpConnectionGetConnectivity();
-sp_err_t SpConnectionSetConnectivity(int x);
 
 
 sp_err_t SpRegisterConnectionCallbacks(

@@ -115,7 +115,6 @@ int main(int argc, const char *argv[]) {
                     printf("shuffled: %d\n", SpPlaybackIsShuffled());
                     printf("repeated: %d\n", SpPlaybackIsRepeated());
                     printf("logged in: %d\n", SpConnectionIsLoggedIn());
-                    printf("connectivity: %d\n", SpConnectionGetConnectivity());
                 } else if (strcmp(cmd, "metadata") == 0) {
                     struct SpMetadata metadata;
                     SpGetMetadata(&metadata, 0);
