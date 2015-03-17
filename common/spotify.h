@@ -162,7 +162,6 @@ uint16_t SpPlaybackGetVolume(void);
 int SpPlaybackIsPlaying(void);
 int SpPlaybackIsShuffled(void);
 int SpPlaybackIsRepeated(void);
-int SpPlaybackIsPlaying(void);
 int SpPlaybackIsActiveDevice(void);
 sp_err_t SpPlaybackEnableShuffle(void);
 sp_err_t SpPlaybackEnableRepeat(void);
