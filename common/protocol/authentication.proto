@@ -31,8 +31,8 @@ message AuthSuccess {
     required uint32 data1 = 0x14;
     required uint32 data2 = 0x19;
     required uint32 data3 = 0x1e;
-    required bytes  data4 = 0x08;
-
+    required bytes  data4 = 0x28;
+    required bytes  data5 = 0x32;
 }
 
 message AuthFailure {
