@@ -1,6 +1,5 @@
 #include "audio.h"
 #include "spotify.h"
-#include <ao/ao.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <signal.h>
