@@ -39,11 +39,16 @@ well.
 
 # Links
 * http://divideoverflow.com/2014/08/reversing-spotify-connect/
+
   divideoverflow had done some initial research on it, but doesn't have any
   more time for it.
+
 * https://github.com/sashahilton00/spotify-connect-resources
+
   sashahilton00 is centralizing information about Spotify Connect there.
+
 * http://sourceforge.net/p/despotify/code/HEAD/tree/
+
   Despotify used to be an open source implementation of the Spotify protocol.
   It hasn't been updated in years and is out of date. However the encryption
   layer is extremely similar. Kudos to them for figuring it out.
