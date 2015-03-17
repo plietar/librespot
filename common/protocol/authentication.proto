@@ -37,5 +37,10 @@ message AuthSuccess {
 
 message AuthFailure {
     required uint32 code = 0x0a;
+    required Data1 data1 = 0x32;
+
+    message Data1 {
+        required string data0 = 0x01;
+    }
 }
 
