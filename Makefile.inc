@@ -9,6 +9,7 @@ $(TARGET): $(SOURCES) $(HEADERS)
 	$(CC) $(CFLAGS) $(LDFLAGS) $(SOURCES) -o $@
 endif
 
+all:
 clean:
 	rm -f $(CLEAN)
 

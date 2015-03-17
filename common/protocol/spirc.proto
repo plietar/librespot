@@ -1,0 +1,88 @@
+enum MessageType {
+    kMessageTypeHello = 1;
+    kMessageTypeGoodbye = 2;
+    kMessageTypeNotify = 10;
+    kMessageTypeLoad = 20;
+    kMessageTypePlay = 21;
+    kMessageTypePause = 22;
+    kMessageTypePlayPause = 23;
+    kMessageTypeSeek = 24;
+    kMessageTypePrev = 25;
+    kMessageTypeNext = 26;
+    kMessageTypeVolume = 27;
+    kMessageTypeShuffle = 28;
+    kMessageTypeRepeat = 29;
+    kMessageTypeQueue = 30;
+    kMessageTypeVolumeDown = 31;
+    kMessageTypeVolumeUp = 32;
+}
+enum PlayStatus {
+    kPlayStatusStop = 0;
+    kPlayStatusPlay = 1;
+    kPlayStatusPause = 2;
+    kPlayStatusLoading = 3;
+    kPlayStatusError = 4;
+}
+message Goodbye {
+    required string reason = 1;
+}
+message State {
+    //required string trackURI = 0x1;
+    required string contextURI = 0x2;
+    optional uint32 index = 0x3;
+    required uint32 position = 0x4;
+    required PlayStatus status = 0x5;
+    //required uint32 errorCode = 0x6;
+    required uint32 data6 = 0x7;
+    required string data7 = 0x8;
+    optional uint32 duration = 0x9;
+    optional uint32 data9 = 0xa;
+    repeated uint32 data10 = 0xb;
+    repeated string future = 0xc;
+    required bool shuffle = 0xd;
+    required bool repeat = 0xe;
+    repeated Data11 data11 = 0x1b;
+    repeated string data12 = 0x14;
+    repeated uint32 data13 = 0x15;
+    repeated uint32 data14 = 0x18;
+    repeated uint32 data15 = 0x19;
+    repeated uint32 data16 = 0x1a;
+    message Data11 {
+        required bytes data0 = 0x1;
+        //required uint32 data1 = 0x3;
+    }
+}
+
+message Frame {
+    required uint32 version = 1;
+    required string ident = 2;
+    required string name = 3;
+    required uint32 msgid = 4;
+    required MessageType type = 5;
+    required Data5 data5 = 0x7;
+    //required Goodbye goodbye = 0xb;
+    optional State state = 0xc;
+    optional uint32 position = 0xd;
+    optional uint32 volume = 0xe;
+    optional uint32 data10 = 0x11;
+    optional string data11 = 0x12;
+    message Data5 {
+        optional string version = 0x1;
+        repeated string data4 = 0x5;
+        required uint32 data10 = 0xa;
+        required uint32 data12 = 0xb;
+        required uint32 data13 = 0xc;
+        required string data14 = 0xd;
+        optional uint32 data15 = 0xe;
+        required uint32 data16 = 0xf;
+        repeated Data17 data17 = 0x11;
+
+        message Data17 {
+            required uint32 data0 = 0x1;
+            optional uint32 data1 = 0x2;
+            repeated string data2 = 0x3;
+        }
+    }
+}
+
+
