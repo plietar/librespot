@@ -32,7 +32,7 @@ with open(KEYFILE, 'r') as f:
 commands = Commands(session)
 handlers = Handlers(session, commands)
 
-session.generate_keys()
+session.crypto.generate_keys()
 
 r = protocol.Request()
 
@@ -40,7 +40,7 @@ r.data0.data0 = 0x05;
 r.data0.data1 = 0x02;
 r.data0.data2 = 0x10800000000;
 r.data1 = 0
-r.data2.data0.data0 = session.public_key;
+r.data2.data0.data0 = session.crypto.public_key;
 r.data2.data0.data1 = 1
 r.random = os.urandom(0x10)
 r.data4 = str(bytearray([0x1e]))
@@ -54,11 +54,11 @@ init_server_packet = header + data
 
 r = protobuf_parse(protocol.Response, data)
 
-session.compute_shared_key(r.data.data0.data0.data0)
-session.compute_challenge(init_client_packet, init_server_packet)
+session.crypto.compute_shared_key(r.data.data0.data0.data0)
+session.crypto.compute_challenge(init_client_packet, init_server_packet)
 
 r = protocol.ChallengePacket()
-r.data0.data0.data0 = session.challenge
+r.data0.data0.data0 = session.crypto.challenge
 r.data1 = b''
 r.data2 = b''
 

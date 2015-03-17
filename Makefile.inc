@@ -10,7 +10,7 @@ $(TARGET): $(SOURCES) $(HEADERS)
 endif
 
 all:
-	make -C common
+	make -C ../common
 
 clean:
 	rm -f $(CLEAN)
