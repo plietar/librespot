@@ -38,10 +38,10 @@ int main(int argc, const char *argv[]) {
     struct init_data init;
     char os_device_id[0x20];
     int debug_flag = 0;
-    const char *appkey_file;
+    const char *keyfile;
 
     if (argc < 2) {
-        fprintf(stderr, "Usage: %s [-d] APPKEY\n", argv[0]);
+        fprintf(stderr, "Usage: %s [-d] KEYFILE\n", argv[0]);
         exit(1);
     }
 
@@ -60,7 +60,7 @@ int main(int argc, const char *argv[]) {
     init.buffer = malloc(0x100000);
     init.buffer_size = 0x100000;
     init.app_key = malloc(0x190);
-    init.app_key_size = read_app_key(appkey_file, init.app_key, 0x190);
+    init.app_key_size = read_app_key(keyfile, init.app_key, 0x190);
     init.os_device_id = os_device_id;
     init.remoteName = "TestConnect";
     init.brandName = "DummyBrand";

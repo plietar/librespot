@@ -9,12 +9,20 @@ def send_packet(sender, packet, extra=bytes()):
 
     return data
 
-def recv_packet(reader):
+def recv_packet(reader, extra=None):
+    if extra is not None:
+        prefix = reader(extra)
     header = reader(4)
     length, = struct.unpack('>L', header)
-    data = reader(length - 4)
+    if extra is not None:
+        data = reader(length - 4 - extra)
+    else:
+        data = reader(length - 4)
 
-    return header, data
+    if extra is not None:
+        return prefix, header, data
+    else:
+        return header, data
 
 def send_encrypted_packet(sender, cipher, cmd, packet):
     cipher.reset()
