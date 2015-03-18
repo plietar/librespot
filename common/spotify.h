@@ -93,8 +93,8 @@ struct init_data {
 
 struct vars_data {
     char publicKey[0x96];
-    char activeUser[0x40];
     char deviceId[0x40];
+    char activeUser[0x40];
     char remoteName[0x40];
     char accountReq[0x10];
     char deviceType[0x10];

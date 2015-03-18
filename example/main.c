@@ -27,6 +27,7 @@ static int print_vars(void) {
 
     printf("public key: %s\n", vars.publicKey);
     printf("device id: %s\n", vars.deviceId);
+    printf("activeUser: %s\n", vars.activeUser);
     printf("remote name: %s\n", vars.remoteName);
     printf("account req: %s\n", vars.accountReq);
     printf("device type: %s\n", vars.deviceType);
@@ -47,9 +48,9 @@ int main(int argc, const char *argv[]) {
 
     if (argc > 2 && strcmp("-d", argv[1]) == 0) {
         debug_flag = 1;
-        appkey_file = argv[2];
+        keyfile = argv[2];
     } else {
-        appkey_file = argv[1];
+        keyfile = argv[1];
     }
 
     memset(&init, 0x0, sizeof(init));
@@ -139,6 +140,8 @@ int main(int argc, const char *argv[]) {
                     SpConnectionLogout();
                 } else if (strcmp(cmd, "quit") == 0) {
                     break;
+                } else if (strcmp(cmd, "vars") == 0) {
+                    print_vars();
                 }
             }
         }
