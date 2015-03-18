@@ -1,4 +1,4 @@
-from __future__ import absolute_import, division, print_function, unicode_literals
+from __future__ import absolute_import, division, print_function
 
 import os
 import socket
@@ -59,8 +59,8 @@ session.crypto.compute_challenge(init_client_packet, init_server_packet)
 
 r = protocol.ChallengePacket()
 r.data0.data0.data0 = session.crypto.challenge
-r.data1 = b''
-r.data2 = b''
+r.data1 = ''
+r.data2 = ''
 
 session.send_packet(r.SerializeToString())
 

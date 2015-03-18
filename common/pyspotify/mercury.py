@@ -1,4 +1,4 @@
-from __future__ import absolute_import, division, print_function, unicode_literals
+from __future__ import absolute_import, division, print_function
 
 import struct
 from hexdump import dump as hexdump
@@ -60,7 +60,7 @@ def parse_reply(cmd, data, schema=None, t=protocol.MercuryReply):
     print('seq="%s" flags=%d count=%d' % (hexdump(seq), flags, count))
 
     if flags & 0x2:
-        continuation_data.setdefault(seq, b'')
+        continuation_data.setdefault(seq, '')
 
         for i in range(count):
             length, = struct.unpack_from('>H', data, offset)
@@ -73,9 +73,9 @@ def parse_reply(cmd, data, schema=None, t=protocol.MercuryReply):
     for i in range(count):
         length, = struct.unpack_from('>H', data, offset)
         offset += 2
-        p = continuation_data.get(seq, b'') + data[offset:offset+length]
+        p = continuation_data.get(seq, '') + data[offset:offset+length]
         frames.append(p)
-        continuation_data[seq] = b''
+        continuation_data[seq] = ''
         
         offset += length
 

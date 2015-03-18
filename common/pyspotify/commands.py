@@ -1,4 +1,4 @@
-from __future__ import absolute_import, division, print_function, unicode_literals
+from __future__ import absolute_import, division, print_function
 
 from . import protocol
 from . import mercury
@@ -25,8 +25,8 @@ class Commands:
         packet.data3.data0 = 1
         packet.data3.appkey1 = self.session.appkey[0x1:0x81]
         packet.data3.appkey2 = self.session.appkey[0x81:0x141]
-        packet.data3.data3 = b''
-        packet.data3.data4 = b'\0' * 20
+        packet.data3.data3 = ''
+        packet.data3.data4 = '\0' * 20
 
         self.session.send_encrypted_packet(0xab, packet.SerializeToString())
 

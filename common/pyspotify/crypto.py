@@ -1,4 +1,4 @@
-from __future__ import absolute_import, division, print_function, unicode_literals
+from __future__ import absolute_import, division, print_function
 
 import os
 
@@ -19,7 +19,7 @@ def bn2bin(bn, length=None):
         data += chr(bn & 0xFF)
         bn = bn >> 8
     if len(data) < length:
-        data += b'\0' * (length - len(data))
+        data += '\0' * (length - len(data))
     return data[::-1]
 
 DH_generator = bin2bn(str(bytearray([ 0x02 ])))
@@ -52,7 +52,7 @@ class Crypto(object):
         if key is not None:
             self.private_key = key
         else:
-            self.private_key = b'\0' + os.urandom(0x5f)
+            self.private_key = '\0' + os.urandom(0x5f)
 
         self.public_key = bn2bin(
                 pow(DH_generator, bin2bn(self.private_key), DH_prime), 0x60)
