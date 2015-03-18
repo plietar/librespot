@@ -8,15 +8,16 @@ from . import protocol
 
 def protobuf_parse(type, data):
     def check(r):
-        for t, value in r._unknown_fields:
-            tag = 0
-            m = 1
-            while ord(t[0]) > 0x80:
-                tag += ord(t[0]) & 0x7f * m
-                m *= 128
-                t = t[1:]
-            tag += ord(t[0]) * m
-            print('WARNING unknown field: %x %x (%s)' % (tag >> 3, tag & 3, r.__class__.DESCRIPTOR.full_name))
+        if hasattr(r, '_unknown_fields'):
+            for t, value in r._unknown_fields:
+                tag = 0
+                m = 1
+                while ord(t[0]) > 0x80:
+                    tag += ord(t[0]) & 0x7f * m
+                    m *= 128
+                    t = t[1:]
+                tag += ord(t[0]) * m
+                print('WARNING unknown field: %x %x (%s)' % (tag >> 3, tag & 3, r.__class__.DESCRIPTOR.full_name))
 
         for desc, f in r.ListFields():
             if desc.type == FieldDescriptor.TYPE_MESSAGE:
