@@ -9,10 +9,11 @@ from . import protocol
 PROTOCOLS = {
         'vnd.spotify/mercury-mget-request': protocol.MercuryMultiGetRequest,
         'vnd.spotify/mercury-mget-reply': protocol.MercuryMultiGetReply,
+        'vnd.spotify/metadata-track': protocol.Track
 }
 
 def find_protocol(type):
-    return PROTOCOLS[type] if type else None
+    return PROTOCOLS[type] if type and type in PROTOCOLS else None
 
 def decode_payload(data, type=None, schema=None):
     proto = find_protocol(type) if type else schema
@@ -21,12 +22,18 @@ def decode_payload(data, type=None, schema=None):
     else:
         return None
 
-def encode_request(method, url, mime = None, payload=None, seq=b'\0\0\0\0'):
+seq_counter = 0
+def encode_request(method, url, mime = None, payload=None, seq=None):
+    global seq_counter
+
     request = protocol.MercuryRequest()
     request.url = url
     request.method = method
     if mime:
         request.mime = mime
+    if seq is None:
+        seq = struct.pack('>L', seq_counter)
+        seq_counter += 1
 
     count = 2 if payload else 1
 
@@ -57,7 +64,7 @@ def parse_reply(cmd, data, schema=None, t=protocol.MercuryReply):
     count, = struct.unpack_from('>H', data, offset)
     offset += 2
 
-    print('seq="%s" flags=%d count=%d' % (hexdump(seq), flags, count))
+    #print('seq="%s" flags=%d count=%d' % (hexdump(seq), flags, count))
 
     if flags & 0x2:
         continuation_data.setdefault(seq, '')
