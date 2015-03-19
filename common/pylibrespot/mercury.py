@@ -9,7 +9,8 @@ from . import protocol
 PROTOCOLS = {
         'vnd.spotify/mercury-mget-request': protocol.MercuryMultiGetRequest,
         'vnd.spotify/mercury-mget-reply': protocol.MercuryMultiGetReply,
-        'vnd.spotify/metadata-track': protocol.Track
+        'vnd.spotify/metadata-track': protocol.Track,
+        'vnd.spotify/metadata-artist': protocol.Artist
 }
 
 def find_protocol(mime):
@@ -28,6 +29,9 @@ class Mercury(object):
         self.callbacks = dict()
         self.subscriptions = dict()
         self.seq = 0
+
+        self.frames = dict()
+        self.data = dict()
 
     def request(self, method, url, payload=None, mime=None, callback=None, schema=None):
         seq, data = self.encode_request(method, url, payload=payload, mime=mime)
@@ -87,9 +91,26 @@ class Mercury(object):
 
     def handle_packet(self, cmd, data):
         seq, flags, count, data = self.parse_header(data)
-        frames = self.parse_frames(data, count)
+        #print('\'%s\' %x %x %x' % (hexdump(seq), flags, count, len(data)))
 
-        print('\'%s\' %x %x' % (hexdump(seq), flags, count))
+        self.data.setdefault(seq, bytes())
+        self.frames.setdefault(seq, list())
+
+        frames = self.parse_frames(data, count)
+        frames[0] = self.data[seq] + frames[0]
+
+        if flags == 2:
+            self.frames[seq] += frames[:-1]
+            self.data[seq] = frames[-1]
+        else:
+            self.frames[seq] += frames
+            del self.data[seq]
+
+        if flags != 1:
+            return
+
+        frames = self.frames[seq]
+        del self.frames[seq]
 
         response = protobuf_parse(protocol.MercuryReply, frames[0])
         if cmd == 0xb5:
@@ -105,8 +126,8 @@ class Mercury(object):
                 lambda f: decode_payload(f, schema=schema, mime=response.mime),
                 frames[1:])
 
-        more = callback(response, *payloads)
-        if not more and cmd != 0xb5:
+        callback(response, *payloads)
+        if cmd != 0xb5:
             del self.callbacks[seq]
 
     def parse_header(self, data):
