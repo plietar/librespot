@@ -2,9 +2,9 @@ from __future__ import absolute_import, division, print_function
 
 import struct
 from google.protobuf.descriptor import FieldDescriptor
+import binascii
 
 from . import protocol
-
 
 def protobuf_parse(type, data):
     def check(r):
@@ -37,4 +37,29 @@ def protobuf_parse(type, data):
     check(r)
 
     return r
+
+base62 = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+def gid2id(gid):
+    return binascii.hexlify(gid).rjust(32, '0')
+
+def id2uri(uritype, v):
+    res = []
+    v = int(v, 16)
+    while v > 0:
+        res = [v % 62] + res
+        v //= 62
+    id = ''.join([base62[i] for i in res])
+    return ("spotify:"+uritype+":"+id.rjust(22, '0'))
+
+def uri2id(uri):
+    parts = uri.split(":")
+    if len(parts) > 3 and parts[3] == "playlist":
+        s = parts[4]
+    else:
+        s = parts[2]
+
+    v = 0
+    for c in s:
+        v = v * 62 + base62.index(c)
+    return hex(v)[2:-1].rjust(32, '0')
 

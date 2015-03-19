@@ -22,87 +22,72 @@ def decode_payload(data, type=None, schema=None):
     else:
         return None
 
-seq_counter = 0
-def encode_request(method, url, mime = None, payload=None, seq=None):
-    global seq_counter
+class Mercury(object):
+    def __init__(self, session):
+        self.session = session
+        self.callbacks = dict()
+        self.seq = 0
 
-    request = protocol.MercuryRequest()
-    request.url = url
-    request.method = method
-    if mime:
-        request.mime = mime
-    if seq is None:
-        seq = struct.pack('>L', seq_counter)
-        seq_counter += 1
+    def get(self, url, callback=None):
+        seq, data = self.encode_request('GET', url)
+        self.session.send_encrypted_packet(0xb2, data)
+        if callback:
+            self.callbacks[seq] = callback
 
-    count = 2 if payload else 1
+    def encode_request(self, method, url, mime=None, payload=None):
+        request = protocol.MercuryRequest()
+        request.url = url
+        request.method = method
+        if mime:
+            request.mime = mime
 
-    header = struct.pack('>H', len(seq)) + \
-            seq + \
-            chr(1) + \
-            struct.pack('>H', count)
+        seq = struct.pack('>L', self.seq)
+        self.seq += 1
 
-    data = header + struct.pack('>H', request.ByteSize()) + request.SerializeToString()
-    if payload:
-        data += struct.pack('>H', payload.ByteSize()) + payload.SerializeToString()
-    return data
+        count = 2 if payload else 1
 
-continuation_frames = {}
-continuation_data = {}
+        header = struct.pack('>H', len(seq)) + \
+                seq + \
+                chr(1) + \
+                struct.pack('>H', count)
 
-def parse_reply(cmd, data, schema=None, t=protocol.MercuryReply):
-    global continuation_data
-    global continuation_frames
+        data = header + struct.pack('>H', request.ByteSize()) + request.SerializeToString()
+        if payload:
+            data += struct.pack('>H', payload.ByteSize()) + payload.SerializeToString()
 
-    offset = 0
-    seq_length, = struct.unpack_from('>H', data, offset)
-    offset += 2
-    seq = data[offset:offset+seq_length]
-    offset += seq_length
-    flags = ord(data[offset])
-    offset += 1
-    count, = struct.unpack_from('>H', data, offset)
-    offset += 2
+        return seq, data
 
-    #print('seq="%s" flags=%d count=%d' % (hexdump(seq), flags, count))
+    def handle_packet(self, data):
+        seq, flags, count, data = self.parse_header(data)
 
-    if flags & 0x2:
-        continuation_data.setdefault(seq, '')
-
+        offset = 0
+        frames = []
         for i in range(count):
             length, = struct.unpack_from('>H', data, offset)
             offset += 2
-            continuation_data[seq] += data[offset:offset+length]
+            frames.append(data[offset:offset+length])
             offset += length
-        return seq, None, None
 
-    frames = []
-    for i in range(count):
-        length, = struct.unpack_from('>H', data, offset)
+        response = protobuf_parse(protocol.MercuryReply, frames[0])
+        if len(frames) > 1:
+            payload = decode_payload(frames[1], response.mime)
+        else:
+            payload = None
+
+        callback = self.callbacks.get(seq)
+        if callback:
+            more = callback(response, payload)
+            if not more:
+                del self.callbacks[seq]
+
+    def parse_header(self, data):
+        offset = 0
+        seq_length, = struct.unpack_from('>H', data, offset)
         offset += 2
-        p = continuation_data.get(seq, '') + data[offset:offset+length]
-        frames.append(p)
-        continuation_data[seq] = ''
-        
-        offset += length
+        seq = data[offset:offset+seq_length]
+        offset += seq_length
+        flags, count = struct.unpack_from('>bH', data, offset)
+        offset += 3
 
-    if seq in continuation_frames:
-        continuation_frames[seq] += frames
-    else:
-        continuation_frames[seq] = frames
-
-    if flags & 0x1:
-        frames = continuation_frames[seq]
-        continuation_frames[seq] = []
-        assert len(frames) > 0
-
-        reply = protobuf_parse(t, frames[0])
-        payloads = []
-
-        for f in frames[1:]:
-            payload = decode_payload(f, type=reply.mime, schema=schema)
-            payloads.append(payload)
-        return seq, reply, payloads
-    else:
-        return seq, None, None
+        return seq, flags, count, data[offset:]
 

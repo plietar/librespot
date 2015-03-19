@@ -36,6 +36,13 @@ while session.connectionstate != ConnectionState.LOGGED_IN:
 
 print("Logged in")
 
+track = session.get_track('spotify:track:22c2pt75xtnDddA5Zlm0yy')
+
+while not track.is_loaded:
+    session.poll()
+
+print(track.name, track.duration)
+
 while True:
     session.poll()
 

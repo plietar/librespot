@@ -7,6 +7,9 @@ from enum import Enum
 from . import packet, protocol
 from .crypto import Crypto
 from .util import protobuf_parse
+from .metadata import Track
+from .mercury import Mercury
+from .util import uri2id
 
 class ConnectionState(Enum):
     LOGGED_OUT = 0
@@ -23,6 +26,8 @@ class Session(object):
 
         self.crypto = Crypto()
         self.crypto.generate_keys()
+
+        self.mercury = Mercury(self)
 
         self.connectionstate = ConnectionState.DISCONNECTED
 
@@ -88,6 +93,16 @@ class Session(object):
     def handle(self, cmd, data):
         if cmd == 0xac:
             self.connectionstate = ConnectionState.LOGGED_IN
+        elif cmd in range(0xb2, 0xb6):
+            self.mercury.handle_packet(data)
+
+    def get_track(self, uri):
+        id = uri2id(uri)
+
+        t = Track()
+        self.mercury.get('hm://metadata/track/%s' % id, t.load_callback)
+        return t
+
     def send_raw(self, data):
         self.sock.sendall(data)
 
