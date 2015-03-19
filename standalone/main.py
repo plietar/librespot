@@ -8,7 +8,7 @@ import sys
 from hexdump import dump as hexdump
 
 sys.path.append('../common')
-from pyspotify import Session, ConnectionState, PlayerState
+from pylibrespot import Session, ConnectionState, PlayerState, protocol
 
 ap = ("lon3-accesspoint-a26.ap.spotify.com", 4070)
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -36,25 +36,22 @@ session.login(USERNAME, PASSWORD)
 while session.connectionstate != ConnectionState.LOGGED_IN:
     session.poll()
 
-print('Logged in')
-
-track = session.get_track(TRACK)
-
-while not track.is_loaded:
+t = session.get_track(TRACK)
+while not t.is_loaded:
     session.poll()
 
-print('Loading "%s"' % track.name)
+print(t.name)
 
-session.player.load(track)
+def cb(response, *payloads):
+    print(response, sep='')
 
-while session.player.state != PlayerState.LOADED:
+session.mercury.subscribe(
+        'hm://remote/user/%s/abcdef' % USERNAME,
+        callback=cb,
+        schema=protocol.Frame)
+
+while True:
     session.poll()
-
-print('Playing "%s"' % track.name)
-
-session.player.play()
-
-print('Done')
 
 sock.close()
 

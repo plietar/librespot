@@ -10,9 +10,9 @@ import traceback
 from hexdump import dump as hexdump
 
 sys.path.append('../common')
-import pyspotify
-from pyspotify import mercury, protocol, packet, Crypto
-from pyspotify.crypto import bin2bn
+import pylibrespot
+from pylibrespot import mercury, protocol, packet, util
+from pylibrespot.crypto import bin2bn, Crypto
 import pyshn as shn
 
 if len(sys.argv) < 4:
@@ -95,41 +95,12 @@ try:
                     reader.reader(1),
                     crypto.recv_cipher)
             print('recv cmd: %x %x' % (cmd, len(data)))
-
-            if cmd == 0xb3 and False:
-                seq, response, payloads = mercury.parse_reply(cmd, data, schema=protocol.MercurySubscribed)
-                if response:
-                    print(response, end='')
-                #if payloads:
-                #    print(*payloads, sep='', end='')
-            elif cmd == 0xb5 and False:
-                seq, response, payloads = mercury.parse_reply(cmd, data, schema=protocol.Frame)
-                if response:
-                    print(response, end='')
-                if payloads:
-                    print(*payloads, sep='', end='')
-            elif cmd == 0xb2 and False:
-                seq, response, payloads = mercury.parse_reply(cmd, data)
-                if response:
-                    print(response, end='')
-                if payloads:
-                    print(*payloads, sep='', end='')
         if reader.available(2):
             cmd, data = packet.recv_encrypted_packet(
                     reader.reader(2),
                     crypto.send_cipher)
-
             print('send cmd: %x %x' % (cmd, len(data)))
-            if cmd == 0xb2:
-                seq, response, payloads = mercury.parse_reply(cmd, data, t=protocol.MercuryRequest, schema=protocol.Frame)
-                print(response, end='')
-                if response.method == 'SEND':
-                    print(*payloads, sep='\n', end='')
-            if cmd == 0x48:
-                print(data)
-            elif cmd == 0x74:
-                print(data)
-                print(hexdump(data))
+            print(data)
 finally:
     p.kill()
     p.wait()

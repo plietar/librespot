@@ -1,5 +1,5 @@
 INPUTS=$(wildcard protocol/*.proto)
-OUTPUT=pyspotify/protocol
+OUTPUT=pylibrespot/protocol
 
 all: $(OUTPUT)/__init__.py pyshn.so
 
