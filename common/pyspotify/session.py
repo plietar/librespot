@@ -98,7 +98,7 @@ class Session(object):
         if cmd == 0xac:
             self.connectionstate = ConnectionState.LOGGED_IN
         elif cmd in range(0xb2, 0xb6):
-            self.mercury.handle_packet(data)
+            self.mercury.handle_packet(cmd, data)
         elif cmd == 0xd:
             id, key = struct.unpack('>L16s', data)
             self.player.handle_aeskey(id, key)
@@ -111,7 +111,9 @@ class Session(object):
 
     def get_track(self, uri):
         t = Track(uri=uri)
-        self.mercury.get('hm://metadata/track/%s' % t.id, t.load_callback)
+        self.mercury.get(
+                'hm://metadata/track/%s' % t.id,
+                callback=t.load_callback)
         return t
 
     def send_raw(self, data):
