@@ -148,6 +148,6 @@ message AudioFile {
         OTHER1 = 7; // TODO
         OTHER2 = 8; // TODO
     }
-    optional bytes file_id = 1;
+    optional bytes gid = 1;
     optional Format format = 2;
 }

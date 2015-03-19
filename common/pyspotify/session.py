@@ -9,7 +9,8 @@ from .crypto import Crypto
 from .util import protobuf_parse
 from .metadata import Track
 from .mercury import Mercury
-from .util import uri2id
+from .player import Player
+from .channel import ChannelManager
 
 class ConnectionState(Enum):
     LOGGED_OUT = 0
@@ -27,7 +28,10 @@ class Session(object):
         self.crypto = Crypto()
         self.crypto.generate_keys()
 
+        self.player = Player(self)
         self.mercury = Mercury(self)
+
+        self.channels = ChannelManager()
 
         self.connectionstate = ConnectionState.DISCONNECTED
 
@@ -95,12 +99,19 @@ class Session(object):
             self.connectionstate = ConnectionState.LOGGED_IN
         elif cmd in range(0xb2, 0xb6):
             self.mercury.handle_packet(data)
+        elif cmd == 0xd:
+            id, key = struct.unpack('>L16s', data)
+            self.player.handle_aeskey(id, key)
+        elif cmd == 0xe:
+            id, key = struct.unpack('>L16s', data)
+            self.player.handle_aeskey(id, None)
+        elif cmd == 0x9:
+            id, = struct.unpack_from('>H', data, 0)
+            self.channels.handle_packet(id, data[2:])
 
     def get_track(self, uri):
-        id = uri2id(uri)
-
-        t = Track()
-        self.mercury.get('hm://metadata/track/%s' % id, t.load_callback)
+        t = Track(uri=uri)
+        self.mercury.get('hm://metadata/track/%s' % t.id, t.load_callback)
         return t
 
     def send_raw(self, data):

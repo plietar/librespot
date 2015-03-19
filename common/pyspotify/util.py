@@ -39,6 +39,15 @@ def protobuf_parse(type, data):
     return r
 
 base62 = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+
+def pack_bigint(i):
+    b = bytearray()
+    while i:
+        b.append(i & 0xFF)
+        i >>= 8
+    b.reverse()
+    return str(b)
+
 def gid2id(gid):
     return binascii.hexlify(gid).rjust(32, '0')
 
@@ -63,3 +72,14 @@ def uri2id(uri):
         v = v * 62 + base62.index(c)
     return hex(v)[2:-1].rjust(32, '0')
 
+def uri2gid(uri):
+    parts = uri.split(":")
+    if len(parts) > 3 and parts[3] == "playlist":
+        s = parts[4]
+    else:
+        s = parts[2]
+
+    v = 0
+    for c in s:
+        v = v * 62 + base62.index(c)
+    return pack_bigint(v)
