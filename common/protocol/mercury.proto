@@ -1,6 +1,6 @@
 message MercuryRequest {
     required string url = 0x01;
-    required string mime = 0x02;
+    optional string mime = 0x02;
     required string method = 0x03;
 }
 

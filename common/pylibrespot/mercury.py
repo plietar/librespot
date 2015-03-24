@@ -23,15 +23,64 @@ def decode_payload(data, mime=None, schema=None):
     else:
         return None
 
-class Mercury(object):
+class MercuryParser(object):
+    def __init__(self):
+        self.frames = dict()
+        self.data = dict()
+    def parse_header(self, data):
+        offset = 0
+        seq_length, = struct.unpack_from('>H', data, offset)
+        offset += 2
+        seq = data[offset:offset+seq_length]
+        offset += seq_length
+        flags, count = struct.unpack_from('>bH', data, offset)
+        offset += 3
+
+        return seq, flags, count, data[offset:]
+
+    def parse_frames(self, data, count):
+        offset = 0
+        frames = []
+        for i in range(count):
+            length, = struct.unpack_from('>H', data, offset)
+            offset += 2
+            frames.append(data[offset:offset+length])
+            offset += length
+        return frames
+
+    def parse_packet(self, data):
+        seq, flags, count, data = self.parse_header(data)
+        #print('\'%s\' %x %x %x' % (hexdump(seq), flags, count, len(data)))
+
+        self.data.setdefault(seq, bytes())
+        self.frames.setdefault(seq, list())
+
+        frames = self.parse_frames(data, count)
+        frames[0] = self.data[seq] + frames[0]
+
+        if flags == 2:
+            self.frames[seq] += frames[:-1]
+            self.data[seq] = frames[-1]
+        else:
+            self.frames[seq] += frames
+            del self.data[seq]
+
+        if flags != 1:
+            return seq, None
+
+        frames = self.frames[seq]
+        del self.frames[seq]
+
+        return seq, frames
+
+class Mercury(MercuryParser):
     def __init__(self, session):
+        super(Mercury, self).__init__()
+
         self.session = session
         self.callbacks = dict()
         self.subscriptions = dict()
         self.seq = 0
-
-        self.frames = dict()
-        self.data = dict()
 
     def request(self, method, url, payload=None, mime=None, callback=None, schema=None):
         seq, data = self.encode_request(method, url, payload=payload, mime=mime)
@@ -50,6 +99,22 @@ class Mercury(object):
 
     def get(self, *args, **kwargs):
         self.request('GET', *args, **kwargs)
+
+    def multiget(self, endpoint, urls, callback=None, schema=None):
+        def cb(response, payload):
+            payloads = map(
+                    lambda r: decode_payload(r.body, schema=schema, mime=r.mime),
+                    payload.reply)
+            callback(payloads)
+
+        payload = protocol.MercuryMultiGetRequest()
+        for u in urls:
+            p = payload.request.add()
+            p.url = u
+        self.request('GET', endpoint,
+                mime='vnd.spotify/mercury-mget-request',
+                payload=payload,
+                callback=cb)
 
     def subscribe(self, url, callback=None, schema=None):
         def cb(response, *subs):
@@ -90,27 +155,9 @@ class Mercury(object):
         return seq, data
 
     def handle_packet(self, cmd, data):
-        seq, flags, count, data = self.parse_header(data)
-        #print('\'%s\' %x %x %x' % (hexdump(seq), flags, count, len(data)))
-
-        self.data.setdefault(seq, bytes())
-        self.frames.setdefault(seq, list())
-
-        frames = self.parse_frames(data, count)
-        frames[0] = self.data[seq] + frames[0]
-
-        if flags == 2:
-            self.frames[seq] += frames[:-1]
-            self.data[seq] = frames[-1]
-        else:
-            self.frames[seq] += frames
-            del self.data[seq]
-
-        if flags != 1:
+        seq, frames = self.parse_packet(data)
+        if frames is None:
             return
-
-        frames = self.frames[seq]
-        del self.frames[seq]
 
         response = protobuf_parse(protocol.MercuryReply, frames[0])
         if cmd == 0xb5:
@@ -129,25 +176,4 @@ class Mercury(object):
         callback(response, *payloads)
         if cmd != 0xb5:
             del self.callbacks[seq]
-
-    def parse_header(self, data):
-        offset = 0
-        seq_length, = struct.unpack_from('>H', data, offset)
-        offset += 2
-        seq = data[offset:offset+seq_length]
-        offset += seq_length
-        flags, count = struct.unpack_from('>bH', data, offset)
-        offset += 3
-
-        return seq, flags, count, data[offset:]
-
-    def parse_frames(self, data, count):
-        offset = 0
-        frames = []
-        for i in range(count):
-            length, = struct.unpack_from('>H', data, offset)
-            offset += 2
-            frames.append(data[offset:offset+length])
-            offset += length
-        return frames
 
