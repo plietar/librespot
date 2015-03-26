@@ -95,7 +95,11 @@ class Session(object):
         self.handle(cmd, data)
 
     def handle(self, cmd, data):
-        if cmd == 0xac:
+        if cmd == 0x4:
+            self.send_encrypted_packet(0x49, data)
+        elif cmd == 0x4a:
+            pass # Pong reply, ignore it
+        elif cmd == 0xac:
             self.connectionstate = ConnectionState.LOGGED_IN
         elif cmd in range(0xb2, 0xb6):
             self.mercury.handle_packet(cmd, data)
