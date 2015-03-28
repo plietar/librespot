@@ -26,10 +26,19 @@ cdef class Decoder:
         n = ov_read(&self.vf, buffer, length, 0, 2, 1, &self.bitstream)
         return PyString_FromStringAndSize(buffer, n)
 
+    def pcm_seek(self, int64_t pos):
+        return ov_pcm_seek(&self.vf, pos)
+
+    def time_seek(self, double s):
+        return ov_time_seek(&self.vf, s)
+
 cdef size_t read_cb(void *ptr, size_t size, size_t nmemb, void *datasource):
     self = <Decoder>datasource
     data = self.f.read(size * nmemb)
     length = PyString_GET_SIZE(data)
+    if length > size*nmemb:
+        print('Warning size mismatch')
+    length = min(length, size*nmemb)
     memcpy(ptr, PyString_AS_STRING(data), length)
     return length
 

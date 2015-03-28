@@ -40,15 +40,15 @@ t = session.get_track(TRACK)
 while not t.is_loaded:
     session.poll()
 
-print(t.name)
+print('Loading track %s' % t.name)
+session.player.load(t)
 
-def cb(response, *payloads):
-    print(response, sep='')
+while session.player.state != PlayerState.LOADED:
+    session.poll()
 
-session.mercury.subscribe(
-        'hm://remote/user/%s/abcdef' % USERNAME,
-        callback=cb,
-        schema=protocol.Frame)
+print('Playing track %s' % t.name)
+
+session.player.play()
 
 while True:
     session.poll()

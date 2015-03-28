@@ -1,3 +1,5 @@
+from libc.stdint cimport int64_t
+
 cdef extern from "vorbis/vorbisfile.h":
     ctypedef struct OggVorbis_File:
         pass
@@ -24,6 +26,8 @@ cdef extern from "vorbis/vorbisfile.h":
     double ov_time_total(OggVorbis_File *vf, int i)
     long ov_streams(OggVorbis_File *vf)
     long ov_read(OggVorbis_File *vf, char *buffer, int length, int bigendianp, int word, int sgned, int *bitstream)
+    int ov_pcm_seek(OggVorbis_File *vf, int64_t pos)
+    int ov_time_seek(OggVorbis_File *vf, double s)
 
     vorbis_info *ov_info(OggVorbis_File *vf,int link)
     
