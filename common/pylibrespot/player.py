@@ -8,7 +8,7 @@ import Crypto.Util.Counter
 from threading import Thread, Event
 from functools import partial
 
-from .sink import AlsaSink, Sink
+from .sink import Sink, AlsaSink, PortAudioSink
 from .decoder.decoder import Decoder
 
 
