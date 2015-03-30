@@ -36,8 +36,13 @@ typedef enum {
     kSpPlaybackNotifyPlay = 0,
     kSpPlaybackNotifyPause = 1,
     kSpPlaybackNotifyTrackChanged = 2,
+    kSpPlaybackNotifyShuffleEnabled = 5,
+    kSpPlaybackNotifyShuffleDisabled = 6,
+    kSpPlaybackNotifyRepeatEnabled = 7,
+    kSpPlaybackNotifyRepeatDisabled = 8,
     kSpPlaybackNotifyBecameActive = 9,
     kSpPlaybackNotifyBecameInactive = 10,
+    kSpPlaybackNotifyPlayTokenLost = 11,
     kSpPlaybackEventAudioFlush = 12,
 } sp_playback_notify_t;
 
