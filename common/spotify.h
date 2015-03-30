@@ -36,8 +36,13 @@ typedef enum {
     kSpPlaybackNotifyPlay = 0,
     kSpPlaybackNotifyPause = 1,
     kSpPlaybackNotifyTrackChanged = 2,
+    kSpPlaybackNotifyShuffleEnabled = 5,
+    kSpPlaybackNotifyShuffleDisabled = 6,
+    kSpPlaybackNotifyRepeatEnabled = 7,
+    kSpPlaybackNotifyRepeatDisabled = 8,
     kSpPlaybackNotifyBecameActive = 9,
     kSpPlaybackNotifyBecameInactive = 10,
+    kSpPlaybackNotifyPlayTokenLost = 11,
     kSpPlaybackEventAudioFlush = 12,
 } sp_playback_notify_t;
 
@@ -163,8 +168,8 @@ int SpPlaybackIsPlaying(void);
 int SpPlaybackIsShuffled(void);
 int SpPlaybackIsRepeated(void);
 int SpPlaybackIsActiveDevice(void);
-sp_err_t SpPlaybackEnableShuffle(void);
-sp_err_t SpPlaybackEnableRepeat(void);
+sp_err_t SpPlaybackEnableShuffle(bool enable);
+sp_err_t SpPlaybackEnableRepeat(bool enable);
 sp_err_t SpPlaybackSetBitrate(sp_bitrate_t bitrate);
 
 sp_err_t SpConnectionLoginPassword(const char *login, const char *password);
