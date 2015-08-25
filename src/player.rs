@@ -122,7 +122,7 @@ impl <'s> PlayerInternal<'s> {
 
                         return true;
                     });
-                    println!("Load Done");
+                    info!("Load Done");
                 }
                 Ok(PlayerCommand::Seek(ms)) => {
                     decoder.as_mut().unwrap().time_seek(ms as f64 / 1000f64).unwrap();
@@ -169,7 +169,7 @@ impl <'s> PlayerInternal<'s> {
                         match stream.write(&packet.data) {
                             Ok(_) => (),
                             Err(portaudio::PaError::OutputUnderflowed)
-                                => eprintln!("Underflow"),
+                                => warn!("Underflow"),
                             Err(e) => panic!("PA Error {}", e)
                         };
                     },

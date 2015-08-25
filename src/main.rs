@@ -5,6 +5,7 @@
 extern crate getopts;
 extern crate librespot;
 extern crate rpassword;
+extern crate env_logger;
 
 use std::clone::Clone;
 use std::fs::File;
@@ -12,6 +13,7 @@ use std::io::{stdout, Read, Write};
 use std::path::Path;
 use std::thread;
 use std::path::PathBuf;
+use std::env;
 
 use getopts::Options;
 use rpassword::read_password;
@@ -27,6 +29,13 @@ fn usage(program: &str, opts: &Options) -> String {
 }
 
 fn main() {
+    let rust_log = "RUST_LOG";
+    if let Err(_) = env::var(rust_log) {
+        env::set_var(rust_log, "info")
+    }
+
+    env_logger::init().unwrap();
+
     let args: Vec<String> = std::env::args().collect();
     let program = args[0].clone();
 
