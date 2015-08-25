@@ -21,6 +21,8 @@ extern crate vorbis;
 extern crate time;
 extern crate tempfile;
 
+#[macro_use] extern crate log;
+
 extern crate librespot_protocol;
 
 #[macro_use] pub mod util;

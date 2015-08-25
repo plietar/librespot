@@ -98,7 +98,7 @@ impl <'s, D: SpircDelegate> SpircManager<'s, D> {
                 pkt = rx.recv() => {
                     let frame = protobuf::parse_from_bytes::<protocol::spirc::Frame>(
                         pkt.unwrap().payload.front().unwrap()).unwrap();
-                    println!("{:?} {} {} {} {}",
+                    debug!("{:?} {} {} {} {}",
                              frame.get_typ(),
                              frame.get_device_state().get_name(),
                              frame.get_ident(),

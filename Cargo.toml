@@ -26,6 +26,8 @@ time = "*"
 tempfile = "*"
 rpassword = "*"
 getopts = "0.2.4"
+log = "0.3"
+env_logger = "0.3"
 
 [dependencies.protobuf]
 git = "https://github.com/plietar/rust-protobuf.git"

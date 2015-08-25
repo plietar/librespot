@@ -164,8 +164,8 @@ impl Session {
             0x9  => self.stream.lock().unwrap().handle(cmd, data),
             0xd | 0xe => self.audio_key.lock().unwrap().handle(cmd, data),
             0xb2...0xb6 => self.mercury.lock().unwrap().handle(cmd, data),
-            0xac => eprintln!("Authentication succeedded"),
-            0xad => eprintln!("Authentication failed"),
+            0xac => info!("Authentication succeedded"),
+            0xad => info!("Authentication failed"),
             _ => ()
         }
     }
