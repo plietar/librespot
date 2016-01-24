@@ -33,7 +33,8 @@ fn main() {
         .optopt("p", "password", "Password (optional)", "PASSWORD")
         .reqopt("c", "cache", "Path to a directory where files will be cached.", "CACHE")
         .reqopt("n", "name", "Device name", "NAME")
-        .optopt("b", "bitrate", "Bitrate (96, 160 or 320). Defaults to 160", "BITRATE");
+        .optopt("b", "bitrate", "Bitrate (96, 160 or 320). Defaults to 160", "BITRATE")
+        .optflag("d", "disable-volume", "Disable volume control");
 
     let matches = match opts.parse(&args[1..]) {
         Ok(m) => m,
@@ -85,6 +86,7 @@ fn main() {
         device_name: name,
         cache_location: PathBuf::from(cache_location),
         bitrate: bitrate,
+        disable_volume: matches.opt_present("d"),
     };
 
     let session = Session::new(config);

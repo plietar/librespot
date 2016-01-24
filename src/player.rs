@@ -247,14 +247,17 @@ impl PlayerInternal {
             if self.state.lock().unwrap().status == PlayStatus::kPlayStatusPlay {
                 match decoder.as_mut().unwrap().packets().next() {
                     Some(Ok(packet)) => {
-                        let buffer = packet.data
+                        let buffer = match self.session.0.config.disable_volume {
+                            false => packet.data
                                            .iter()
                                            .map(|&x| {
                                                (x as i32
                                                 * self.state.lock().unwrap().volume as i32
                                                 / 0xFFFF) as i16
                                            })
-                                           .collect::<Vec<i16>>();
+                                           .collect::<Vec<i16>>(),
+                            true => packet.data,
+                        };
                         match stream.write(&buffer) {
                             Ok(_) => (),
                             Err(portaudio::PaError::OutputUnderflowed) => eprintln!("Underflow"),
