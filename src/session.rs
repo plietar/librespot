@@ -26,6 +26,7 @@ pub struct Config {
     pub device_name: String,
     pub cache_location: PathBuf,
     pub bitrate: Bitrate,
+    pub disable_volume: bool,
 }
 
 pub struct SessionData {
