@@ -2,6 +2,7 @@
 name = "librespot"
 version = "0.1.0"
 dependencies = [
+ "alsa 0.0.1 (git+https://github.com/plietar/rust-alsa)",
  "bit-set 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "byteorder 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "dns-sd 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -28,6 +29,14 @@ dependencies = [
  "url 0.5.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "vergen 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "vorbis 0.0.14 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "alsa"
+version = "0.0.1"
+source = "git+https://github.com/plietar/rust-alsa#4d790bf9b5fa80f1f5eff9dfd4d33326c3f5fe2c"
+dependencies = [
+ "libc 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]

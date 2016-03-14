@@ -13,7 +13,6 @@ extern crate crypto;
 extern crate eventual;
 extern crate hyper;
 extern crate num;
-extern crate portaudio;
 extern crate protobuf;
 extern crate shannon;
 extern crate rand;
@@ -22,6 +21,11 @@ extern crate time;
 extern crate tiny_http;
 extern crate tempfile;
 extern crate url;
+
+#[cfg(target_os = "linux")]
+extern crate alsa;
+#[cfg(not(target_os = "linux"))]
+extern crate portaudio;
 
 #[cfg(not(feature = "with-tremor"))]
 extern crate vorbis;

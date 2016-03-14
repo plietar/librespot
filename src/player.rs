@@ -155,7 +155,7 @@ fn apply_volume(volume: u16, data: &[i16]) -> Cow<[i16]> {
 }
 
 impl PlayerInternal {
-    fn run<S: Sink>(self, sink: S) {
+    fn run<S: Sink>(self, mut sink: S) {
         let mut decoder = None;
 
         loop {
