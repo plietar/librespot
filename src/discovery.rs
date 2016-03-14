@@ -47,7 +47,7 @@ impl DiscoveryManager {
             "remoteName": (self.session.config().device_name),
             "activeUser": "",
             "publicKey": (public_key),
-            "deviceType": "UNKNOWN",
+            "deviceType": "Speaker",
             "libraryVersion": "0.1.0",
             "accountReq": "PREMIUM",
             "brandDisplayName": "librespot",
