@@ -8,6 +8,7 @@ dependencies = [
  "dns-sd 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "eventual 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "getopts 0.2.14 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gstreamer 0.4.0 (git+https://github.com/arturoc/gstreamer1.0-rs)",
  "hyper 0.7.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "json_macros 0.3.0 (git+https://github.com/plietar/json_macros)",
  "lazy_static 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -193,6 +194,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "getopts"
 version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "gstreamer"
+version = "0.4.0"
+source = "git+https://github.com/arturoc/gstreamer1.0-rs#ead6cc2bb386ecfc87fd63721f58f2d27065f827"
 
 [[package]]
 name = "hpack"

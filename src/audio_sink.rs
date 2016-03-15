@@ -4,7 +4,12 @@ use std::io;
 pub type DefaultSink = portaudio_sink::PortAudioSink<'static>;
 
 #[cfg(target_os = "linux")]
+#[cfg(not(target_arch = "mipsel"))]
 pub type DefaultSink = alsa_sink::AlsaSink;
+
+#[cfg(target_os = "linux")]
+#[cfg(target_arch = "mipsel")]
+pub type DefaultSink = gstreamer_sink::GstreamerSink;
 
 pub trait Sink {
     fn start(&mut self) -> io::Result<()>;
@@ -61,6 +66,7 @@ mod portaudio_sink {
 }
 
 #[cfg(target_os = "linux")]
+#[cfg(not(target_arch = "mipsel"))]
 mod alsa_sink {
     use audio_sink::Sink;
     use std::io;
@@ -95,3 +101,86 @@ mod alsa_sink {
     }
 }
 
+#[cfg(target_os = "linux")]
+#[cfg(target_arch = "mipsel")]
+mod gstreamer_sink {
+    use audio_sink::Sink;
+    use std::io;
+    use std::thread;
+    use std::sync::{Condvar,Mutex};
+    use gst;
+    use gst::{BinT, ElementT};
+    pub struct GstreamerSink;
+
+    impl GstreamerSink {
+        pub fn open() -> GstreamerSink {
+            gst::init();
+            let pipeline_str = "appsrc caps=\"audio/x-raw,format=S8,channels=2\" name=appsrc0 ! audioconvert ! autoaudiosink";
+            let mut pipeline = gst::Pipeline::new_from_str(pipeline_str).unwrap();
+            let mut mainloop = gst::MainLoop::new();
+            let mut bus = pipeline.bus().expect("Couldn't get bus from pipeline");
+            let bus_receiver = bus.receiver();
+            let appsrc = pipeline.get_by_name("appsrc0").expect("Couldn't get appsrc from pipeline");
+            let mut appsrc = gst::AppSrc::new_from_element(appsrc);
+            let bufferpool = gst::BufferPool::new().unwrap();
+            let appsrc_caps = appsrc.caps().unwrap();
+            bufferpool.set_params(&appsrc_caps,64,0,0);
+            if bufferpool.set_active(true).is_err(){
+                panic!("Couldn't activate buffer pool");
+            }
+            mainloop.spawn();
+            pipeline.play();
+
+            thread::spawn(move||{
+                let condvar = Condvar::new();
+                let mutex = Mutex::new(());
+                loop {
+                    if let Some(mut buffer) = bufferpool.acquire_buffer(){
+                        appsrc.push_buffer(buffer);
+                        let guard = mutex.lock().unwrap();
+                        condvar.wait_timeout_ms(guard,(1000./60.) as u32).ok();
+                    }else{
+                        println!("Couldn't get buffer, sending EOS and finishing thread");
+                        appsrc.end_of_stream();
+                        break;
+                    }
+                }
+            });
+            for message in bus_receiver.iter(){
+                match message.parse(){
+                    gst::Message::StateChangedParsed{ref msg, ref old, ref new, ref pending} => {
+                        println!("element `{}` changed from {:?} to {:?}", message.src_name(), old, new);
+                    }
+                    gst::Message::ErrorParsed{ref msg, ref error, ref debug} => {
+                        println!("error msg from element `{}`: {}, quitting", message.src_name(), error.message());
+                        break;
+                    }
+                    gst::Message::Eos(ref msg) => {
+                        println!("eos received quiting");
+                        break;
+                    }
+                    _ => {
+                        println!("msg of type `{}` from element `{}`", message.type_name(), message.src_name());
+                    }
+                }
+            }
+            bus.receiver();
+            mainloop.quit();
+        }
+    }
+    impl Sink for GstreamerSink {
+        fn start(&mut self) -> io::Result<()> {
+            //self.o.start().unwrap();
+            Ok(())
+        }
+        fn stop(&mut self) -> io::Result<()> {
+            //self.0.stop().unwrap();
+            Ok(())
+        }
+        fn write(&mut self, data: &[i16]) -> io::Result<()> {
+            //self.0.write_interleaved(data).unwrap();
+
+            Ok(())
+        }
+    }        
+}

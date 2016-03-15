@@ -51,7 +51,7 @@ json_macros     = { git = "https://github.com/plietar/json_macros" }
 [target.arm-unknown-linux-gnueabihf.dependencies]
 alsa            = { git = "https://github.com/plietar/rust-alsa" }
 [target.mipsel-unknown-linux-gnu.dependencies]
-alsa            = { git = "https://github.com/plietar/rust-alsa" }
+gstreamer            = { git = "https://github.com/arturoc/gstreamer1.0-rs" }
 [target.i686-unknown-linux-gnu.dependencies]
 alsa            = { git = "https://github.com/plietar/rust-alsa" }
 [target.x86_64-unknown-linux-gnu.dependencies]
