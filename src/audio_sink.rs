@@ -113,21 +113,22 @@ mod gstreamer_sink {
     use gst::{BinT, ElementT};
 
     pub struct GstreamerSink {
-        tx: SyncSender<Vec<i16>>
+        tx: SyncSender<Vec<i16>>,
+        pipe: gst::Pipeline
     }
 
     impl GstreamerSink {
         pub fn open() -> GstreamerSink {
             gst::init();
-            let pipeline_str = "appsrc caps=\"audio/x-raw,format=S16,channels=2\" name=appsrc0 ! audioconvert ! dvbaudiosink";
-            let mut pipeline = gst::Pipeline::new_from_str(pipeline_str).unwrap();
+            let pipeline_str = "appsrc caps=\"audio/x-raw,format=S16,channels=2\" name=appsrc0 ! audioconvert ! autoaudiosink";
+            let mut pipeline = gst::Pipeline::new_from_str(pipeline_str).expect("New Pipeline error");
             let mut mainloop = gst::MainLoop::new();
             let mut bus = pipeline.bus().expect("Couldn't get bus from pipeline");
             let bus_receiver = bus.receiver();
             let appsrc_element = pipeline.get_by_name("appsrc0").expect("Couldn't get appsrc from pipeline");
-            let mut appsrc = gst::AppSrc::new_from_element(appsrc_element.to_element());
-            let bufferpool = gst::BufferPool::new().unwrap();
-            let appsrc_caps = appsrc.caps().unwrap();
+            let appsrc = gst::AppSrc::new_from_element(appsrc_element.to_element());
+            let bufferpool = gst::BufferPool::new().expect("New Buffer Pool error");
+            let appsrc_caps = appsrc.caps().expect("set appsrc caps failed");
             bufferpool.set_params(&appsrc_caps,64,0,0);
             if bufferpool.set_active(true).is_err(){
                 panic!("Couldn't activate buffer pool");
@@ -137,12 +138,11 @@ mod gstreamer_sink {
 
             let (tx, rx) = sync_channel(1);
             thread::spawn(move||{
-                let condvar = Condvar::new();
-                let mutex = Mutex::new(());
                 for data: Vec<i16> in rx {
+                    println!("thread running...");
                     let mut buffer = bufferpool.acquire_buffer().expect("acquire buffer");
                     if let Err(e) = buffer.map_write(|mut mapping| {
-                        for (i, c) in mapping.iter_mut::<u8>().enumerate() {
+                        for (i, c) in mapping.iter_mut::<i16>().enumerate() {
                             *c = data[i];
                         }
                     }) {
@@ -156,26 +156,27 @@ mod gstreamer_sink {
                     }
                 }
             });
-            for message in bus_receiver.iter(){
-                match message.parse(){
-                    gst::Message::StateChangedParsed{ref msg, ref old, ref new, ref pending} => {
-                        println!("element `{}` changed from {:?} to {:?}", message.src_name(), old, new);
-                    }
-                    gst::Message::ErrorParsed{ref msg, ref error, ref debug} => {
-                        println!("error msg from element `{}`: {}, quitting", message.src_name(), error.message());
-                        break;
-                    }
-                    gst::Message::Eos(ref msg) => {
-                        println!("eos received quiting");
-                        break;
-                    }
-                    _ => {
-                        println!("msg of type `{}` from element `{}`", message.type_name(), message.src_name());
-                    }
-                }
-            }
+//            for message in bus_receiver.iter(){
+//                match message.parse(){
+//                    gst::Message::StateChangedParsed{ref msg, ref old, ref new, ref pending} => {
+//                        println!("element `{}` changed from {:?} to {:?}", message.src_name(), old, new);
+//                    }
+//                    gst::Message::ErrorParsed{ref msg, ref error, ref debug} => {
+//                        println!("error msg from element `{}`: {}, quitting", message.src_name(), error.message());
+//                        break;
+//                    }
+//                    gst::Message::Eos(ref msg) => {
+//                        println!("eos received quiting");
+//                        break;
+//                    }
+//                    _ => {
+//                        println!("msg of type `{}` from element `{}`", message.type_name(), message.src_name());
+//                    }
+//                }
+//          }
             GstreamerSink {
-                tx: tx
+                tx: tx,
+                pipe: pipeline
             }
         }
     }
@@ -192,7 +193,7 @@ mod gstreamer_sink {
         fn write(&mut self, data: &[i16]) -> io::Result<()> {
             // Copy expensively to avoid thread synchronization
             let data = data.to_vec();
-            self.tx.send(data).unwrap();
+            self.tx.send(data).expect("tx send failed in write function");
 
             Ok(())
         }
