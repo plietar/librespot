@@ -41,6 +41,7 @@ json_macros     = { git = "https://github.com/plietar/json_macros" }
 protobuf_macros = { git = "https://github.com/plietar/rust-protobuf-macros" }
 shannon         = { git = "https://github.com/plietar/rust-shannon" }
 tremor          = { git = "https://github.com/plietar/rust-tremor", optional = true }
+gstreamer       = { git = "https://github.com/arturoc/gstreamer1.0-rs", optional = true}
 
 [build-dependencies]
 vergen          = "~0.1.0"
@@ -51,7 +52,7 @@ json_macros     = { git = "https://github.com/plietar/json_macros" }
 [target.arm-unknown-linux-gnueabihf.dependencies]
 alsa            = { git = "https://github.com/plietar/rust-alsa" }
 [target.mipsel-unknown-linux-gnu.dependencies]
-gstreamer            = { git = "https://github.com/arturoc/gstreamer1.0-rs" }
+alsa            = { git = "https://github.com/plietar/rust-alsa" }
 [target.i686-unknown-linux-gnu.dependencies]
 alsa            = { git = "https://github.com/plietar/rust-alsa" }
 [target.x86_64-unknown-linux-gnu.dependencies]
@@ -66,4 +67,5 @@ portaudio       = { git = "https://github.com/mvdnes/portaudio-rs" }
 discovery = ["dns-sd"]
 with-syntex = ["syntex", "protobuf_macros/with-syntex", "json_macros/with-syntex"]
 with-tremor = ["tremor"]
+enigma2 = ["gstreamer"]
 default = ["with-syntex"]

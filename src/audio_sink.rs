@@ -4,11 +4,11 @@ use std::io;
 pub type DefaultSink = portaudio_sink::PortAudioSink<'static>;
 
 #[cfg(target_os = "linux")]
-#[cfg(not(target_arch = "mipsel"))]
+#[cfg(not(feature = "enigma2"))]
 pub type DefaultSink = alsa_sink::AlsaSink;
 
 #[cfg(target_os = "linux")]
-#[cfg(target_arch = "mipsel")]
+#[cfg(feature = "enigma2")]
 pub type DefaultSink = gstreamer_sink::GstreamerSink;
 
 pub trait Sink {
@@ -66,7 +66,7 @@ mod portaudio_sink {
 }
 
 #[cfg(target_os = "linux")]
-#[cfg(not(target_arch = "mipsel"))]
+#[cfg(not(feature = "enigma2"))]
 mod alsa_sink {
     use audio_sink::Sink;
     use std::io;
@@ -78,7 +78,7 @@ mod alsa_sink {
     impl AlsaSink {
         pub fn open() -> AlsaSink {
             let pcm = PCM::open("default", Stream::Playback, Mode::Blocking,
-                                Format::Signed16, Access::Interleaved, 2, 44100).ok().unwrap();
+                                Format::Signed16, Access::Noninterleaved, 2, 44100).ok().unwrap();
 
             AlsaSink(pcm)
         }
@@ -102,7 +102,7 @@ mod alsa_sink {
 }
 
 #[cfg(target_os = "linux")]
-#[cfg(target_arch = "mipsel")]
+#[cfg(feature = "enigma2")]
 mod gstreamer_sink {
     use audio_sink::Sink;
     use std::io;

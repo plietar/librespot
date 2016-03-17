@@ -23,10 +23,10 @@ extern crate tempfile;
 extern crate url;
 
 #[cfg(target_os = "linux")]
-#[cfg(target_arch = "mipsel")]
+#[cfg(feature = "enigma2")]
 extern crate gst;
 #[cfg(target_os = "linux")]
-#[cfg(not(target_arch = "mipsel"))]
+#[cfg(not(feature = "enigma2"))]
 extern crate alsa;
 #[cfg(not(target_os = "linux"))]
 extern crate portaudio;
