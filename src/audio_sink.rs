@@ -151,7 +151,9 @@ mod gstreamer_sink {
                     }
                     buffer.set_live(true);
                     let res = appsrc.push_buffer(buffer);
-                    res == 0
+                    if res != 0 {
+                        panic!("push_buffer: {}", res);
+                    }
                 }
             });
             for message in bus_receiver.iter(){
