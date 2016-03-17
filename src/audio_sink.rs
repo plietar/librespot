@@ -108,11 +108,12 @@ mod gstreamer_sink {
     use std::io;
     use std::thread;
     use std::sync::{Condvar,Mutex};
+    use std::sync::mpsc::{sync_channel, SyncSender};
     use gst;
     use gst::{BinT, ElementT};
 
     pub struct GstreamerSink {
-        src: gst::appsrc::AppSrc
+        tx: SyncSender<Vec<i16>>
     }
 
     impl GstreamerSink {
@@ -134,10 +135,11 @@ mod gstreamer_sink {
             mainloop.spawn();
             pipeline.play();
 
+            let (tx, rx) = sync_channel(1);
             thread::spawn(move||{
                 let condvar = Condvar::new();
                 let mutex = Mutex::new(());
-                loop {
+                for data: Vec<i16> in rx {
                     let mut buffer = bufferpool.acquire_buffer().expect("acquire buffer");
                     if let Err(e) = buffer.map_write(|mut mapping| {
                         for (i, c) in mapping.iter_mut::<u8>().enumerate() {
@@ -149,7 +151,9 @@ mod gstreamer_sink {
                     }
                     buffer.set_live(true);
                     let res = appsrc.push_buffer(buffer);
-                    res == 0
+                    if res != 0 {
+                        panic!("push_buffer: {}", res);
+                    }
                 }
             });
             for message in bus_receiver.iter(){
@@ -171,7 +175,7 @@ mod gstreamer_sink {
                 }
             }
             GstreamerSink {
-                src: gst::AppSrc::new_from_element(appsrc_element)
+                tx: tx
             }
         }
     }
@@ -186,7 +190,9 @@ mod gstreamer_sink {
             Ok(())
         }
         fn write(&mut self, data: &[i16]) -> io::Result<()> {
-            //self.0.write_interleaved(data).unwrap();
+            // Copy expensively to avoid thread synchronization
+            let data = data.to_vec();
+            self.tx.send(data).unwrap();
 
             Ok(())
         }
