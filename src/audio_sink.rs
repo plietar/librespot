@@ -115,7 +115,7 @@ mod gstreamer_sink {
     impl GstreamerSink {
         pub fn open() -> GstreamerSink {
             gst::init();
-            let pipeline_str = "appsrc caps=\"audio/x-raw,format=S8,channels=2\" name=appsrc0 ! audioconvert ! autoaudiosink";
+            let pipeline_str = "appsrc caps=\"audio/x-raw,format=S16,channels=2\" name=appsrc0 ! audioconvert ! autoaudiosink";
             let mut pipeline = gst::Pipeline::new_from_str(pipeline_str).unwrap();
             let mut mainloop = gst::MainLoop::new();
             let mut bus = pipeline.bus().expect("Couldn't get bus from pipeline");
