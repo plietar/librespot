@@ -120,9 +120,8 @@ mod gstreamer_sink {
             let mut mainloop = gst::MainLoop::new();
             let mut bus = pipeline.bus().expect("Couldn't get bus from pipeline");
             let bus_receiver = bus.receiver();
-            let appsrc = pipeline.get_by_name("appsrc0").expect("Couldn't get appsrc from pipeline");
-            let mut appsrc2 = gst::appsrc::AppSrc::new_from_element(appsrc);
-            let mut appsrc = gst::AppSrc::new_from_element(appsrc);
+            let appsrc_element = pipeline.get_by_name("appsrc0").expect("Couldn't get appsrc from pipeline");
+            let mut appsrc = gst::AppSrc::new_from_element(appsrc_element.to_element());
             let bufferpool = gst::BufferPool::new().unwrap();
             let appsrc_caps = appsrc.caps().unwrap();
             bufferpool.set_params(&appsrc_caps,64,0,0);
@@ -165,7 +164,9 @@ mod gstreamer_sink {
                     }
                 }
             }
-            GstreamerSink { src: appsrc2 }
+            GstreamerSink {
+                src: gst::AppSrc::new_from_element(appsrc_element)
+            }
         }
     }
     impl Sink for GstreamerSink {
