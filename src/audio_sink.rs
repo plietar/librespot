@@ -110,19 +110,21 @@ mod gstreamer_sink {
     use std::sync::{Condvar,Mutex};
     use gst;
     use gst::{BinT, ElementT};
-    pub struct GstreamerSink{src: gst::appsrc::AppSrc}
+
+    pub struct GstreamerSink {
+        src: gst::appsrc::AppSrc
+    }
 
     impl GstreamerSink {
         pub fn open() -> GstreamerSink {
             gst::init();
-            let pipeline_str = "appsrc caps=\"audio/x-raw,format=S8,channels=2\" name=appsrc0 ! audioconvert ! autoaudiosink";
+            let pipeline_str = "appsrc caps=\"audio/x-raw,format=S16,channels=2\" name=appsrc0 ! audioconvert ! autoaudiosink";
             let mut pipeline = gst::Pipeline::new_from_str(pipeline_str).unwrap();
             let mut mainloop = gst::MainLoop::new();
             let mut bus = pipeline.bus().expect("Couldn't get bus from pipeline");
             let bus_receiver = bus.receiver();
-            let appsrc = pipeline.get_by_name("appsrc0").expect("Couldn't get appsrc from pipeline");
-            let mut appsrc2 = gst::appsrc::AppSrc::new_from_element(appsrc);
-            let mut appsrc = gst::AppSrc::new_from_element(appsrc);
+            let appsrc_element = pipeline.get_by_name("appsrc0").expect("Couldn't get appsrc from pipeline");
+            let mut appsrc = gst::AppSrc::new_from_element(appsrc_element.to_element());
             let bufferpool = gst::BufferPool::new().unwrap();
             let appsrc_caps = appsrc.caps().unwrap();
             bufferpool.set_params(&appsrc_caps,64,0,0);
@@ -165,7 +167,9 @@ mod gstreamer_sink {
                     }
                 }
             }
-            GstreamerSink { src: appsrc2 }
+            GstreamerSink {
+                src: gst::AppSrc::new_from_element(appsrc_element)
+            }
         }
     }
     impl Sink for GstreamerSink {
