@@ -110,7 +110,10 @@ mod gstreamer_sink {
     use std::sync::{Condvar,Mutex};
     use gst;
     use gst::{BinT, ElementT};
-    pub struct GstreamerSink{src: gst::appsrc::AppSrc}
+
+    pub struct GstreamerSink {
+        src: gst::appsrc::AppSrc
+    }
 
     impl GstreamerSink {
         pub fn open() -> GstreamerSink {
