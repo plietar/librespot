@@ -110,7 +110,7 @@ mod gstreamer_sink {
     use std::sync::{Condvar,Mutex};
     use gst;
     use gst::{BinT, ElementT};
-    pub struct GstreamerSink;
+    pub struct GstreamerSink{src: gst::appsrc::AppSrc}
 
     impl GstreamerSink {
         pub fn open() -> GstreamerSink {
@@ -121,6 +121,7 @@ mod gstreamer_sink {
             let mut bus = pipeline.bus().expect("Couldn't get bus from pipeline");
             let bus_receiver = bus.receiver();
             let appsrc = pipeline.get_by_name("appsrc0").expect("Couldn't get appsrc from pipeline");
+            let mut appsrc2 = gst::appsrc::AppSrc::new_from_element(appsrc);
             let mut appsrc = gst::AppSrc::new_from_element(appsrc);
             let bufferpool = gst::BufferPool::new().unwrap();
             let appsrc_caps = appsrc.caps().unwrap();
@@ -164,13 +165,13 @@ mod gstreamer_sink {
                     }
                 }
             }
-            bus.receiver();
-            mainloop.quit();
+            GstreamerSink { src: appsrc2 }
         }
     }
     impl Sink for GstreamerSink {
         fn start(&mut self) -> io::Result<()> {
             //self.o.start().unwrap();
+
             Ok(())
         }
         fn stop(&mut self) -> io::Result<()> {
