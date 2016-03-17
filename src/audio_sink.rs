@@ -118,7 +118,7 @@ mod gstreamer_sink {
     impl GstreamerSink {
         pub fn open() -> GstreamerSink {
             gst::init();
-            let pipeline_str = "appsrc caps=\"audio/x-raw,format=S16,channels=2\" name=appsrc0 ! audioconvert ! autoaudiosink";
+            let pipeline_str = "appsrc caps=\"audio/x-raw,format=S16,channels=2\" name=appsrc0 ! audioconvert ! dvbaudiosink";
             let mut pipeline = gst::Pipeline::new_from_str(pipeline_str).unwrap();
             let mut mainloop = gst::MainLoop::new();
             let mut bus = pipeline.bus().expect("Couldn't get bus from pipeline");
@@ -138,15 +138,18 @@ mod gstreamer_sink {
                 let condvar = Condvar::new();
                 let mutex = Mutex::new(());
                 loop {
-                    if let Some(mut buffer) = bufferpool.acquire_buffer(){
-                        appsrc.push_buffer(buffer);
-                        let guard = mutex.lock().unwrap();
-                        condvar.wait_timeout_ms(guard,(1000./60.) as u32).ok();
-                    }else{
-                        println!("Couldn't get buffer, sending EOS and finishing thread");
-                        appsrc.end_of_stream();
-                        break;
+                    let mut buffer = bufferpool.acquire_buffer().expect("acquire buffer");
+                    if let Err(e) = buffer.map_write(|mut mapping| {
+                        for (i, c) in mapping.iter_mut::<u8>().enumerate() {
+                            *c = data[i];
+                        }
+                    }) {
+                        println!("Cannot write to buffer: {:?}", e);
+                        return false;
                     }
+                    buffer.set_live(true);
+                    let res = appsrc.push_buffer(buffer);
+                    res == 0
                 }
             });
             for message in bus_receiver.iter(){
