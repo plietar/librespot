@@ -107,29 +107,26 @@ mod gstreamer_sink {
     use audio_sink::Sink;
     use std::io;
     use std::thread;
-    use std::sync::mpsc::{sync_channel, SyncSender, Receiver};
+    use std::sync::mpsc::{sync_channel, SyncSender};
     use gst;
-    use gst::{BinT, ElementT, PipelineT};
+    use gst::{BinT, ElementT};
 
     pub struct GstreamerSink {
         tx: SyncSender<Vec<i16>>,
-        rx: Receiver<Vec<i16>>,
-        pipe: gst::Pipeline
+        pipeline: gst::Pipeline
     }
 
     impl GstreamerSink {
         pub fn open() -> GstreamerSink {
             gst::init();
-            let pipeline_str = "appsrc caps=\"audio/x-raw,format=S16LE,layout=interleaved,channels=2,rate=44100\" name=appsrc0 ! audioconvert ! autoaudiosink";
-            let mut pipeline = gst::Pipeline::new_from_str(pipeline_str).expect("New Pipeline error");
+            let pipeline_str = "appsrc caps=\"audio/x-raw,format=S16LE,layout=interleaved,channels=2,rate=44100,block=true\" name=appsrc0 ! audioconvert ! autoaudiosink";
+            let pipeline = gst::Pipeline::new_from_str(pipeline_str).expect("New Pipeline error");
             let mut mainloop = gst::MainLoop::new();
-            //let mut bus = pipeline.bus().expect("Couldn't get bus from pipeline");
-            //let bus_receiver = bus.receiver();
             let appsrc_element = pipeline.get_by_name("appsrc0").expect("Couldn't get appsrc from pipeline");
-            let appsrc = gst::AppSrc::new_from_element(appsrc_element.to_element());
+            let mut appsrc = gst::AppSrc::new_from_element(appsrc_element.to_element());
             let bufferpool = gst::BufferPool::new().expect("New Buffer Pool error");
             let appsrc_caps = appsrc.caps().expect("set appsrc caps failed");
-            bufferpool.set_params(&appsrc_caps,64,0,0);
+            bufferpool.set_params(&appsrc_caps, 2048 * 2, 0, 0);
             if bufferpool.set_active(true).is_err(){
                 panic!("Couldn't activate buffer pool");
             }
@@ -160,19 +157,22 @@ mod gstreamer_sink {
 
 
 
-            let (tx, rx) = sync_channel(64);
-            thread::spawn(move||{
-                for data in self.rx.recv().expect("rx recive failed in thread")::Vec<i16> {
-                    println!("thread running...");
+            let (tx, rx) = sync_channel::<Vec<i16>>(64);
+            thread::spawn(move || {
+                for data in rx {
                     let mut buffer = bufferpool.acquire_buffer().expect("acquire buffer");
-                    if let Err(e) = buffer.map_write(|mut mapping| {
-                        for (i, c) in mapping.iter_mut::<i16>().enumerate() {
-                            *c = data[i];
-                        }
-                    }) {
-                        println!("Cannot write to buffer: {:?}", e);
-                        return false;
+
+                    assert!(data.len() <= buffer.len::<i16>());
+                    unsafe {
+                        // TODO: add this to the bindings
+                        gst::ffi::gst_buffer_set_size(buffer.gst_buffer_mut(),
+                                                      (data.len() * 2) as gst::ffi::gssize);
                     }
+
+                    buffer.map_write(|mut mapping| {
+                        mapping.data_mut::<i16>().clone_from_slice(&data);
+                    }).unwrap();
+
                     buffer.set_live(true);
                     let res = appsrc.push_buffer(buffer);
                     if res != 0 {
@@ -180,21 +180,21 @@ mod gstreamer_sink {
                     }
                 }
             });
-            pipeline.play();
+
             GstreamerSink {
                 tx: tx,
-                rx: rx,
-                pipe: pipeline
+                pipeline: pipeline
             }
         }
     }
+
     impl Sink for GstreamerSink {
         fn start(&mut self) -> io::Result<()> {
-            //self.o.start().unwrap();
+            self.pipeline.play();
             Ok(())
         }
         fn stop(&mut self) -> io::Result<()> {
-            //self.0.stop().unwrap();
+            self.pipeline.pause();
             Ok(())
         }
         fn write(&mut self, data: &[i16]) -> io::Result<()> {
