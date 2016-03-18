@@ -119,7 +119,7 @@ mod gstreamer_sink {
     impl GstreamerSink {
         pub fn open() -> GstreamerSink {
             gst::init();
-            let pipeline_str = "appsrc caps=\"audio/x-raw,format=S16LE,layout=interleaved,channels=2,rate=44100,block=true\" name=appsrc0 ! audioconvert ! autoaudiosink";
+            let pipeline_str = r#"appsrc caps="audio/x-raw,format=S16LE,layout=interleaved,channels=2,rate=44100" block=true max-bytes=4096 name=appsrc0 ! audioconvert ! autoaudiosink"#;
             let pipeline = gst::Pipeline::new_from_str(pipeline_str).expect("New Pipeline error");
             let mut mainloop = gst::MainLoop::new();
             let appsrc_element = pipeline.get_by_name("appsrc0").expect("Couldn't get appsrc from pipeline");
