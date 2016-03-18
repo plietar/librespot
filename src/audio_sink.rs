@@ -109,7 +109,7 @@ mod gstreamer_sink {
     use std::thread;
     use std::sync::mpsc::{sync_channel, SyncSender, Receiver};
     use gst;
-    use gst::{BinT, ElementT};
+    use gst::{BinT, ElementT, PipelineT};
 
     pub struct GstreamerSink {
         tx: SyncSender<Vec<i16>>,
@@ -120,7 +120,7 @@ mod gstreamer_sink {
     impl GstreamerSink {
         pub fn open() -> GstreamerSink {
             gst::init();
-            let pipeline_str = "appsrc caps=\"audio/x-raw,format=S16,channels=2\" name=appsrc0 ! audioconvert ! autoaudiosink";
+            let pipeline_str = "appsrc caps=\"audio/x-raw,format=S16LE,layout=interleaved,channels=2,rate=44100\" name=appsrc0 ! audioconvert ! autoaudiosink";
             let mut pipeline = gst::Pipeline::new_from_str(pipeline_str).expect("New Pipeline error");
             let mut mainloop = gst::MainLoop::new();
             //let mut bus = pipeline.bus().expect("Couldn't get bus from pipeline");
@@ -134,7 +134,31 @@ mod gstreamer_sink {
                 panic!("Couldn't activate buffer pool");
             }
             mainloop.spawn();
-            pipeline.play();
+
+            let mut bus = pipeline.bus().expect("Couldn't get bus from pipeline");
+            thread::spawn(move || {
+            let bus_receiver = bus.receiver();
+                for message in bus_receiver.iter() {
+                    match message.parse() {
+                        gst::Message::StateChangedParsed{msg: _, ref old, ref new, pending: _} =>
+                            println!("element `{}` changed from {:?} to {:?}", message.src_name(), old, new),
+                        gst::Message::StateChanged(_) =>
+                            println!("element `{}` state changed", message.src_name()),
+                        gst::Message::ErrorParsed{msg: _, ref error, debug: _} => {
+                            println!("error msg from element `{}`: {}, quitting", message.src_name(), error.message());
+                            break;
+                        },
+                        gst::Message::Eos(ref _msg) => {
+                            println!("eos received quiting");
+                            break;
+                        },
+                        _ =>
+                            println!("Pipe message: {} from {} at {}", message.type_name(), message.src_name(), message.timestamp())
+                    }
+                }
+            });
+
+
 
             let (tx, rx) = sync_channel(64);
             thread::spawn(move||{
@@ -156,6 +180,7 @@ mod gstreamer_sink {
                     }
                 }
             });
+            pipeline.play();
             GstreamerSink {
                 tx: tx,
                 rx: rx,
@@ -166,7 +191,6 @@ mod gstreamer_sink {
     impl Sink for GstreamerSink {
         fn start(&mut self) -> io::Result<()> {
             //self.o.start().unwrap();
-
             Ok(())
         }
         fn stop(&mut self) -> io::Result<()> {
