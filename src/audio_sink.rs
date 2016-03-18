@@ -107,13 +107,13 @@ mod gstreamer_sink {
     use audio_sink::Sink;
     use std::io;
     use std::thread;
-    use std::sync::{Condvar,Mutex};
-    use std::sync::mpsc::{sync_channel, SyncSender};
+    use std::sync::mpsc::{sync_channel, SyncSender, Receiver};
     use gst;
     use gst::{BinT, ElementT};
 
     pub struct GstreamerSink {
         tx: SyncSender<Vec<i16>>,
+        rx: Receiver<Vec<i16>>,
         pipe: gst::Pipeline
     }
 
@@ -123,8 +123,8 @@ mod gstreamer_sink {
             let pipeline_str = "appsrc caps=\"audio/x-raw,format=S16,channels=2\" name=appsrc0 ! audioconvert ! autoaudiosink";
             let mut pipeline = gst::Pipeline::new_from_str(pipeline_str).expect("New Pipeline error");
             let mut mainloop = gst::MainLoop::new();
-            let mut bus = pipeline.bus().expect("Couldn't get bus from pipeline");
-            let bus_receiver = bus.receiver();
+            //let mut bus = pipeline.bus().expect("Couldn't get bus from pipeline");
+            //let bus_receiver = bus.receiver();
             let appsrc_element = pipeline.get_by_name("appsrc0").expect("Couldn't get appsrc from pipeline");
             let appsrc = gst::AppSrc::new_from_element(appsrc_element.to_element());
             let bufferpool = gst::BufferPool::new().expect("New Buffer Pool error");
@@ -136,9 +136,9 @@ mod gstreamer_sink {
             mainloop.spawn();
             pipeline.play();
 
-            let (tx, rx) = sync_channel(1);
+            let (tx, rx) = sync_channel(64);
             thread::spawn(move||{
-                for data: Vec<i16> in rx {
+                for data in self.rx.recv().expect("rx recive failed in thread")::Vec<i16> {
                     println!("thread running...");
                     let mut buffer = bufferpool.acquire_buffer().expect("acquire buffer");
                     if let Err(e) = buffer.map_write(|mut mapping| {
@@ -156,26 +156,9 @@ mod gstreamer_sink {
                     }
                 }
             });
-//            for message in bus_receiver.iter(){
-//                match message.parse(){
-//                    gst::Message::StateChangedParsed{ref msg, ref old, ref new, ref pending} => {
-//                        println!("element `{}` changed from {:?} to {:?}", message.src_name(), old, new);
-//                    }
-//                    gst::Message::ErrorParsed{ref msg, ref error, ref debug} => {
-//                        println!("error msg from element `{}`: {}, quitting", message.src_name(), error.message());
-//                        break;
-//                    }
-//                    gst::Message::Eos(ref msg) => {
-//                        println!("eos received quiting");
-//                        break;
-//                    }
-//                    _ => {
-//                        println!("msg of type `{}` from element `{}`", message.type_name(), message.src_name());
-//                    }
-//                }
-//          }
             GstreamerSink {
                 tx: tx,
+                rx: rx,
                 pipe: pipeline
             }
         }
@@ -197,5 +180,5 @@ mod gstreamer_sink {
 
             Ok(())
         }
-    }        
+    }
 }
