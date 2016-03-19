@@ -48,6 +48,8 @@ clippy          = { version = "*", optional = true }
 
 openssl         = { version = "0.7", optional = true }
 
+libpulse-sys	= { git = "https://github.com/astro/libpulse-sys" }
+
 [build-dependencies]
 vergen          = "~0.1.0"
 syntex          = { version = "*", optional = true }
@@ -60,4 +62,6 @@ with-syntex   = ["syntex", "protobuf_macros/with-syntex", "json_macros/with-synt
 with-tremor   = ["tremor"]
 #facebook      = ["hyper/ssl", "openssl"]
 static-appkey = []
-default       = ["with-syntex"]
+pulseaudio-sink = []
+portaudio-sink = []
+default       = ["with-syntex","portaudio-sink"]

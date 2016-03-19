@@ -17,7 +17,6 @@ extern crate eventual;
 extern crate hyper;
 extern crate lmdb_rs;
 extern crate num;
-extern crate portaudio;
 extern crate protobuf;
 extern crate shannon;
 extern crate rand;
@@ -38,6 +37,12 @@ extern crate dns_sd;
 extern crate openssl;
 
 extern crate librespot_protocol as protocol;
+
+#[cfg(feature = "portaudio-sink")]
+extern crate portaudio;
+
+#[cfg(feature = "pulseaudio-sink")]
+extern crate libpulse_sys;
 
 // This doesn't play nice with syntex, so place it here
 pub mod version {
