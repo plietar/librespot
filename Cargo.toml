@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["Paul Liétar <paul@lietar.net>"]
 build = "build.rs"
 
+
 [lib]
 name = "librespot"
 path = "src/lib.rs"
@@ -44,6 +45,7 @@ dns-sd          = { version  = "~0.1.1", optional = true }
 
 portaudio       = { git = "https://github.com/mvdnes/portaudio-rs", optional = true }
 libpulse-sys	= { git = "https://github.com/astro/libpulse-sys", optional = true }
+syslog		= { version = "3.1.0", optional = true }
 
 json_macros     = { git = "https://github.com/plietar/json_macros" }
 protobuf_macros = { git = "https://github.com/plietar/rust-protobuf-macros" }
@@ -66,4 +68,5 @@ facebook          = ["hyper/ssl", "openssl"]
 portaudio-backend = ["portaudio"]
 pulseaudio-backend= ["libpulse-sys"]
 static-appkey     = []
+syslog-output	  = ["syslog"]
 default           = ["with-syntex", "portaudio-backend"]

@@ -45,6 +45,9 @@ extern crate portaudio;
 #[cfg(feature = "libpulse-sys")]
 extern crate libpulse_sys;
 
+#[cfg(feature = "syslog-output")]
+extern crate syslog;
+
 extern crate librespot_protocol as protocol;
 
 // This doesn't play nice with syntex, so place it here

@@ -33,14 +33,24 @@ static APPKEY: Option<&'static [u8]> = Some(include_bytes!(concat!(env!("CARGO_M
 #[cfg(not(feature = "static-appkey"))]
 static APPKEY: Option<&'static [u8]> = None;
 
+#[cfg(not(feature = "syslog-output"))]
+static LOG_INIT: fn() -> Result<(),log::SetLoggerError> = env_logger::init;
+
+#[cfg(feature = "syslog-output")]
+use librespot::syslog_output;
+
+#[cfg(feature = "syslog-output")]
+static LOG_INIT:  fn() -> Result<(),log::SetLoggerError> = syslog_output::init;
+
+
 fn main() {
     let rust_log = "RUST_LOG";
     if let Err(_) = env::var(rust_log) {
         env::set_var(rust_log, "debug")
     }
 
-    env_logger::init().unwrap();
-
+    LOG_INIT().unwrap();
+    
     info!("librespot {} ({}). Built on {}.",
              version::short_sha(),
              version::commit_date(),
