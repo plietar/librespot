@@ -7,6 +7,8 @@
 #![cfg_attr(feature="clippy", feature(plugin))]
 #![cfg_attr(feature="clippy", plugin(clippy))]
 
+#![cfg_attr(feature="libpulse-sys", feature(libc))]
+
 #[macro_use]
 extern crate lazy_static;
 
@@ -44,6 +46,9 @@ extern crate portaudio;
 
 #[cfg(feature = "libpulse-sys")]
 extern crate libpulse_sys;
+
+#[cfg(feature = "libpulse-sys")]
+extern crate libc;
 
 #[cfg(feature = "syslog-output")]
 extern crate syslog;
