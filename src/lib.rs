@@ -44,6 +44,12 @@ extern crate alsa;
 #[cfg(feature = "portaudio")]
 extern crate portaudio;
 #[cfg(feature = "libpulse-sys")]
+extern crate pulse_simple_ng;
+
+#[cfg(feature = "libpulse-sys")]
+extern crate libc;
+
+#[cfg(feature = "libpulse-sys")]
 extern crate libpulse_sys;
 
 pub mod album_cover;

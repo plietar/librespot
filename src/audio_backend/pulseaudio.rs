@@ -1,8 +1,8 @@
 use super::{Open, Sink};
 use std::io;
 use libpulse_sys::*;
+use pulse_simple_ng::*;
 use std::ptr::{null, null_mut};
-use std::mem::{transmute};
 use std::ffi::CString;
 
 pub struct PulseAudioSink(*mut pa_simple);
@@ -52,11 +52,9 @@ impl Sink for PulseAudioSink {
     }
 
     fn write(&mut self, data: &[i16]) -> io::Result<()> {
-        unsafe {
-            let ptr = transmute(data.as_ptr());
-            let bytes = data.len() as usize * 2;
-            pa_simple_write(self.0, ptr, bytes, null_mut());
-        };
+        if let Err(error) = write_to_pa(self.0, data)  {
+            warn!("Error writing to pulseaudio: {:?}", error);
+        }
         
         Ok(())
     }

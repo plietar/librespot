@@ -27,6 +27,7 @@ ctrlc           = { version = "2.0", features = ["termination"] }
 env_logger      = "0.3.2"
 eventual        = "0.1.6"
 getopts         = "0.2.14"
+libc            = "0.2.18"
 hyper           = { version = "0.9.1", default-features = false }
 lazy_static     = "0.2.0"
 linear-map      = "1.0"
@@ -51,6 +52,7 @@ tremor          = { git = "https://github.com/plietar/rust-tremor", optional = t
 alsa            = { git = "https://github.com/plietar/rust-alsa", optional = true }
 portaudio       = { git = "https://github.com/mvdnes/portaudio-rs", optional = true }
 libpulse-sys    = { git = "https://github.com/astro/libpulse-sys", optional = true }
+pulse-simple-ng = { git = "https://github.com/marcust/rust-pulse-simple-ng", optional = true }
 
 json_macros     = { git = "https://github.com/plietar/json_macros" }
 protobuf_macros = { git = "https://github.com/plietar/rust-protobuf-macros" }
@@ -70,7 +72,7 @@ nightly           = ["serde_macros"]
 with-tremor       = ["tremor"]
 alsa-backend      = ["alsa"]
 portaudio-backend = ["portaudio"]
-pulseaudio-backend= ["libpulse-sys"]
+pulseaudio-backend= ["libpulse-sys", "pulse-simple-ng"]
 default           = ["with-syntex", "portaudio-backend"]
 
 [package.metadata.deb]
