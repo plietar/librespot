@@ -5,37 +5,45 @@ use std::ptr::{null, null_mut};
 use std::mem::{transmute};
 use std::ffi::CString;
 use libc::*;
+use std::cell::Cell;
 
-pub struct PulseAudioSink(*mut pa_simple);
+pub struct PulseAudioSink(Cell<*mut pa_simple>);
+
+fn init_pa_simple() -> *mut pa_simple {
+    let ss = pa_sample_spec {
+        format: PA_SAMPLE_S16LE,
+        channels: 2, // stereo
+        rate: 44100
+    };
+    
+    let name = CString::new("librespot").unwrap();
+    let description = CString::new("A spoty client library").unwrap();
+
+    let s = unsafe {
+        pa_simple_new(null(),               // Use the default server.
+                      name.as_ptr(),        // Our application's name.
+                      PA_STREAM_PLAYBACK,
+                      null(),               // Use the default device.
+                      description.as_ptr(), // Description of our stream.
+                      &ss,                  // Our sample format.
+                      null(),               // Use default channel map
+                      null(),               // Use default buffering attributes.
+                      null_mut(),           // Ignore error code.
+        )
+    };
+    assert!(s != null_mut());
+
+    info!("Initialized pulse audio");
+    
+    s
+}
+
 
 impl Open for PulseAudioSink {
    fn open() -> PulseAudioSink {
-        info!("Using PulseAudioSink");
+       info!("Using PulseAudioSink");
 
-        let ss = pa_sample_spec {
-            format: PA_SAMPLE_S16LE,
-            channels: 2, // stereo
-            rate: 44100
-        };
-        
-        let name = CString::new("librespot").unwrap();
-        let description = CString::new("A spoty client library").unwrap();
-
-        let s = unsafe {
-            pa_simple_new(null(),               // Use the default server.
-                          name.as_ptr(),        // Our application's name.
-                          PA_STREAM_PLAYBACK,
-                          null(),               // Use the default device.
-                          description.as_ptr(), // Description of our stream.
-                          &ss,                  // Our sample format.
-                          null(),               // Use default channel map
-                          null(),               // Use default buffering attributes.
-                          null_mut(),           // Ignore error code.
-            )
-        };
-        assert!(s != null_mut());
-        
-        PulseAudioSink(s)
+       PulseAudioSink(Cell::new(init_pa_simple()))
     }
 }
 
@@ -128,18 +136,28 @@ fn write_to_pa(pa: *mut pa_simple, data: &[i16]) -> Result<(),PaErrorCode> {
 
 impl Sink for PulseAudioSink {
     fn start(&self) -> io::Result<()> {
-        //trace!("Pulse Audio Sink start called")
+        trace!("Pulse Audio Sink start called");
         Ok(())
     }
 
     fn stop(&self) -> io::Result<()> {
-        //trace!("Pulse Audio Sink stop called")
+        trace!("Pulse Audio Sink stop called");
         Ok(())
     }
 
     fn write(&self, data: &[i16]) -> io::Result<()> {
-        if let Err(error) = write_to_pa(self.0, data)  {
+        if let Err(error) = write_to_pa(self.0.get(), data)  {
             warn!("Error writing to pulseaudio: {:?}", error);
+            match error {
+                PaErrorCode::ErrConnectionTerminated => {
+                    let old_pa = self.0.get();
+                    self.0.set(init_pa_simple());
+                    unsafe {
+                        pa_simple_free(old_pa);
+                    }
+                },
+                _ => info!("Could not recover error")
+            }
         }
         
         Ok(())
