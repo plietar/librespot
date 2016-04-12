@@ -5,6 +5,7 @@ use pulse_simple_ng::*;
 use std::ptr::{null, null_mut};
 use std::ffi::CString;
 use std::cell::Cell;
+use libc::*;
 
 pub struct PulseAudioSink(Cell<*mut pa_simple>);
 
@@ -18,8 +19,10 @@ fn init_pa_simple() -> *mut pa_simple {
     let name = CString::new("librespot").unwrap();
     let description = CString::new("A spoty client library").unwrap();
 
+    let mut error_value: c_int = PA_OK as c_int;
     let s = unsafe {
-        pa_simple_new(null(),               // Use the default server.
+        let error = &mut error_value;
+            pa_simple_new(null(),           // Use the default server.
                       name.as_ptr(),        // Our application's name.
                       PA_STREAM_PLAYBACK,
                       null(),               // Use the default device.
@@ -27,10 +30,13 @@ fn init_pa_simple() -> *mut pa_simple {
                       &ss,                  // Our sample format.
                       null(),               // Use default channel map
                       null(),               // Use default buffering attributes.
-                      null_mut(),           // Ignore error code.
+                      error                 // Ignore error code.
         )
     };
-    assert!(s != null_mut());
+    if s == null_mut() {
+        error!("Could not connect to PulseAudio: {:?}", map_error_code(error_value as c_uint));
+        panic!("Exiting due to unrecoverable error");
+    }
 
     info!("Initialized pulse audio");
     
@@ -51,6 +57,15 @@ impl Open for PulseAudioSink {
    }
 }
 
+fn reconnect_pulse(error: PaErrorCode, cell: &Cell<*mut pa_simple>) {
+    info!("Trying to recover from {:?}", error);
+    let old_pa = cell.get();
+    cell.set(init_pa_simple());
+    unsafe {
+        pa_simple_free(old_pa);
+    }
+}
+
 impl Sink for PulseAudioSink {
     fn start(&mut self) -> io::Result<()> {
         Ok(())
@@ -64,13 +79,8 @@ impl Sink for PulseAudioSink {
         if let Err(error) = write_to_pa(self.0.get(), data)  {
             warn!("Error writing to pulseaudio: {:?}", error);
             match error {
-                PaErrorCode::ErrConnectionTerminated => {
-                    let old_pa = self.0.get();
-                    self.0.set(init_pa_simple());
-                    unsafe {
-                        pa_simple_free(old_pa);
-                    }
-                },
+                PaErrorCode::ErrConnectionTerminated => reconnect_pulse(error, &self.0),
+                PaErrorCode::ErrKilled => reconnect_pulse(error, &self.0),
                 _ => info!("Could not recover error")
             }
         }
