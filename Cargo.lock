@@ -12,6 +12,7 @@ dependencies = [
  "hyper 0.7.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "json_macros 0.3.0 (git+https://github.com/plietar/json_macros)",
  "lazy_static 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libc 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "libpulse-sys 0.0.0 (git+https://github.com/astro/libpulse-sys)",
  "librespot-protocol 0.1.0",
  "lmdb-rs 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",

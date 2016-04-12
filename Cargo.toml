@@ -17,6 +17,7 @@ path = "src/main.rs"
 path = "protocol"
 
 [dependencies]
+libc            = "0.2.8"
 bit-set         = "~0.2.0"
 byteorder       = "~0.4.2"
 eventual        = "~0.1.6"

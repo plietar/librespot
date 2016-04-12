@@ -7,8 +7,6 @@
 #![cfg_attr(feature="clippy", feature(plugin))]
 #![cfg_attr(feature="clippy", plugin(clippy))]
 
-#![cfg_attr(feature="libpulse-sys", feature(libc))]
-
 #[macro_use]
 extern crate lazy_static;
 
