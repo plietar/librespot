@@ -16,6 +16,14 @@ fn init_pa_simple() -> *mut pa_simple {
         rate: 44100
     };
     
+    let attr = pa_buffer_attr {
+        maxlength: !0 as c_uint,
+        tlength: !0 as c_uint,
+        prebuf: !0 as c_uint,
+        minreq: !0 as c_uint,
+        fragsize: 0
+    };
+
     let name = CString::new("librespot").unwrap();
     let description = CString::new("A spoty client library").unwrap();
 
@@ -29,7 +37,7 @@ fn init_pa_simple() -> *mut pa_simple {
                       description.as_ptr(), // Description of our stream.
                       &ss,                  // Our sample format.
                       null(),               // Use default channel map
-                      null(),               // Use default buffering attributes.
+                      &attr,                // Buffering attributes
                       error                 // Ignore error code.
         )
     };
