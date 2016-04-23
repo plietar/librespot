@@ -20,4 +20,7 @@ pub mod stream;
 #[cfg(feature = "facebook")]
 pub mod spotilocal;
 
+#[cfg(feature = "syslog-output")]
+pub mod syslog_output;
+
 pub use album_cover::get_album_cover;

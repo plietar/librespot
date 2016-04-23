@@ -25,6 +25,9 @@ extern crate time;
 extern crate tempfile;
 extern crate url;
 
+#[macro_use]
+extern crate log;
+
 #[cfg(not(feature = "with-tremor"))]
 extern crate vorbis;
 #[cfg(feature = "with-tremor")]
@@ -41,6 +44,12 @@ extern crate portaudio;
 
 #[cfg(feature = "libpulse-sys")]
 extern crate libpulse_sys;
+
+#[cfg(feature = "libpulse-sys")]
+extern crate libc;
+
+#[cfg(feature = "syslog-output")]
+extern crate syslog;
 
 extern crate librespot_protocol as protocol;
 

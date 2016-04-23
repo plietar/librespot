@@ -18,6 +18,7 @@ script:
     - cargo build --no-default-features --features "with-syntex facebook"
     - cargo build --no-default-features --features "with-syntex portaudio-backend"
     - cargo build --no-default-features --features "with-syntex pulseaudio-backend"
+    - cargo build --no-default-features --features "with-syntex syslog-output"
     # Building without syntex only works on nightly
     - if [[ $TRAVIS_RUST_VERSION == *"nightly"* ]]; then
         cargo build --no-default-features;
