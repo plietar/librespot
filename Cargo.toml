@@ -41,8 +41,6 @@ shannon         = { git = "https://github.com/plietar/rust-shannon" }
 vorbis          = "~0.0.14"
 tremor          = { git = "https://github.com/plietar/rust-tremor", optional = true }
 
-dns-sd          = { version  = "~0.1.1", optional = true }
-
 portaudio       = { git = "https://github.com/mvdnes/portaudio-rs", optional = true }
 libpulse-sys    = { git = "https://github.com/astro/libpulse-sys", optional = true }
 
@@ -53,6 +51,8 @@ clippy          = { version = "*", optional = true }
 
 openssl         = { version = "0.7", optional = true }
 
+mdns            = { git = "http://github.com/plietar/rust-mdns" }
+
 [build-dependencies]
 vergen          = "~0.1.0"
 syntex          = { version = "^0.32.0", optional = true }
@@ -60,7 +60,6 @@ protobuf_macros = { git = "https://github.com/plietar/rust-protobuf-macros" }
 json_macros     = { git = "https://github.com/plietar/json_macros" }
 
 [features]
-discovery         = ["dns-sd"]
 with-syntex       = ["syntex", "protobuf_macros/with-syntex", "json_macros/with-syntex"]
 with-tremor       = ["tremor"]
 facebook          = ["hyper/ssl", "openssl"]
