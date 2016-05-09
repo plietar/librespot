@@ -163,14 +163,8 @@ impl From<StoredCredentials> for Credentials {
     }
 }
 
-#[cfg(feature = "discovery")]
 mod discovery;
-#[cfg(feature = "discovery")]
 pub use self::discovery::discovery_login;
-#[cfg(not(feature = "discovery"))]
-pub fn discovery_login(_device_name: &str, _device_id: &str) -> Result<Credentials, ()> {
-    Err(())
-}
 
 #[cfg(feature = "facebook")]
 mod facebook;
