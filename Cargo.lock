@@ -317,7 +317,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "mdns"
 version = "0.1.0"
-source = "git+http://github.com/plietar/rust-mdns#bc199c6c3b5d3b7414d0601cd4199b7f531449ac"
+source = "git+http://github.com/plietar/rust-mdns#85898f891446891197c102067bbaaa6626c4e72e"
 dependencies = [
  "byteorder 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "dns-parser 0.3.2 (git+http://github.com/plietar/dns-parser)",
