@@ -88,11 +88,11 @@ This produces better compilation error messages than with the default configurat
 
 ## Disclaimer
 Using this code to connect to Spotify's API is probably forbidden by them, and
-might result in you application key getting banned. Use at you own risk
+might result in you application key getting banned. Use at you own risk.
 
 ## Contact
 Come and hang out on gitter if you need help or want to offer some.
-https://gitter.im/sashahilton00/spotify-connect-resources
+https://gitter.im/sashahilton00/spotify-connect-resources.
 
 ## License
 Everything in this repository is licensed under the MIT license.
