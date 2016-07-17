@@ -23,5 +23,7 @@ pub trait Cache {
 pub struct NoCache;
 impl Cache for NoCache { }
 
+#[cfg(feature = "with-cache")]
 mod default_cache;
+#[cfg(feature = "with-cache")]
 pub use self::default_cache::DefaultCache;

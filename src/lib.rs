@@ -18,7 +18,6 @@ extern crate eventual;
 extern crate getopts;
 extern crate hyper;
 extern crate linear_map;
-extern crate lmdb_rs;
 extern crate mdns;
 extern crate num;
 extern crate protobuf;
@@ -34,6 +33,9 @@ extern crate url;
 
 #[macro_use]
 extern crate log;
+
+#[cfg(feature = "with-cache")]
+extern crate lmdb_rs;
 
 #[cfg(not(feature = "with-tremor"))]
 extern crate vorbis;
