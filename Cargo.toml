@@ -41,7 +41,7 @@ log             = "0.3.5"
 env_logger      = "0.3.2"
 shannon         = { git = "https://github.com/plietar/rust-shannon" }
 
-vorbis          = "~0.0.14"
+vorbis          = { version = "~0.0.14", optional = true }
 tremor          = { git = "https://github.com/plietar/rust-tremor", optional = true }
 
 portaudio       = { git = "https://github.com/mvdnes/portaudio-rs", optional = true }
@@ -70,4 +70,4 @@ with-tremor       = ["tremor"]
 facebook          = ["hyper/ssl", "openssl"]
 portaudio-backend = ["portaudio"]
 pulseaudio-backend= ["libpulse-sys"]
-default           = ["with-syntex", "portaudio-backend"]
+default           = ["with-syntex", "portaudio-backend", "vorbis"]
