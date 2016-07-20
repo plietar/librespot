@@ -6,7 +6,10 @@ use std::process::exit;
 
 use audio_backend::{BACKENDS, Sink};
 use authentication::{Credentials, facebook_login, discovery_login};
+#[cfg(feature = "with-cache")]
 use cache::{Cache, DefaultCache, NoCache};
+#[cfg(not(feature = "with-cache"))]
+use cache::{Cache, NoCache};
 use player::Player;
 use session::{Bitrate, Config, Session};
 use version;
@@ -35,9 +38,11 @@ pub fn find_backend(name: Option<&str>) -> &'static (Fn(Option<&str>) -> Box<Sin
 }
 
 pub fn add_session_arguments(opts: &mut getopts::Options) {
-    opts.optopt("c", "cache", "Path to a directory where files will be cached.", "CACHE")
-        .reqopt("n", "name", "Device name", "NAME")
+    opts.reqopt("n", "name", "Device name", "NAME")
         .optopt("b", "bitrate", "Bitrate (96, 160 or 320). Defaults to 160", "BITRATE");
+    if cfg!(feature = "with-cache") {
+        opts.optopt("c", "cache", "Path to a directory where files will be cached.", "CACHE");
+    }
 }
 
 pub fn add_authentication_arguments(opts: &mut getopts::Options) {
@@ -73,9 +78,7 @@ pub fn create_session(matches: &getopts::Matches) -> Session {
         }
     };
 
-    let cache = matches.opt_str("c").map(|cache_location| {
-        Box::new(DefaultCache::new(PathBuf::from(cache_location)).unwrap()) as Box<Cache + Send + Sync>
-    }).unwrap_or_else(|| Box::new(NoCache) as Box<Cache + Send + Sync>);
+    let cache = get_cache(matches);
 
     let config = Config {
         user_agent: version::version_string(),
@@ -84,6 +87,18 @@ pub fn create_session(matches: &getopts::Matches) -> Session {
     };
 
     Session::new(config, cache)
+}
+
+#[cfg(feature = "with-cache")]
+pub fn get_cache(matches: &getopts::Matches) -> Box<Cache + Send + Sync> {
+    matches.opt_str("c").map(|cache_location| {
+        Box::new(DefaultCache::new(PathBuf::from(cache_location)).unwrap()) as Box<Cache + Send + Sync>
+    }).unwrap_or_else(|| Box::new(NoCache) as Box<Cache + Send + Sync>)
+}
+
+#[cfg(not(feature = "with-cache"))]
+pub fn get_cache(_matches: &getopts::Matches) -> Box<Cache + Send + Sync> {
+    Box::new(NoCache) as Box<Cache + Send + Sync>
 }
 
 pub fn get_credentials(session: &Session, matches: &getopts::Matches) -> Credentials {
