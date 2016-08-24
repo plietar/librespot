@@ -111,6 +111,10 @@ impl SpircManager {
         }
     }
 
+    pub fn tracks(&self) -> Vec<SpotifyId> {
+        self.0.lock().unwrap().tracks.clone()
+    }
+
     pub fn devices(&self) -> HashMap<String, String> {
         self.0.lock().unwrap().devices.clone()
     }
