@@ -18,7 +18,7 @@ pub use protocol::spirc::{PlayStatus, MessageType};
 pub struct SpircManager(Arc<Mutex<SpircInternal>>);
 
 struct SpircInternal {
-    player: Player,
+    player: Option<Player>,
     session: Session,
 
     seq_nr: u32,
@@ -44,9 +44,11 @@ struct SpircInternal {
 }
 
 impl SpircManager {
-    pub fn new(session: Session, player: Player) -> SpircManager {
+    pub fn new(session: Session, player: Option<Player>) -> SpircManager {
         let ident = session.device_id().to_owned();
         let name = session.config().device_name.clone();
+
+        let player_is_some = player.is_some();
 
         SpircManager(Arc::new(Mutex::new(SpircInternal {
             player: player,
@@ -57,7 +59,7 @@ impl SpircManager {
             name: name,
             ident: ident,
             device_type: 5,
-            can_play: true,
+            can_play: player_is_some,
 
             repeat: false,
             shuffle: false,
@@ -86,12 +88,14 @@ impl SpircManager {
             // Use a weak pointer to avoid creating an Rc cycle between the player and the
             // SpircManager
             let _self = Arc::downgrade(&self.0);
-            internal.player.add_observer(Box::new(move |state| {
-                if let Some(_self) = _self.upgrade() {
-                    let mut internal = _self.lock().unwrap();
-                    internal.on_update(state);
-                }
-            }));
+            if let Some(ref player) = internal.player {
+                player.add_observer(Box::new(move |state| {
+                    if let Some(_self) = _self.upgrade() {
+                        let mut internal = _self.lock().unwrap();
+                        internal.on_update(state);
+                    }
+                }));
+            }
 
             rx
         };
@@ -178,12 +182,15 @@ impl SpircInternal {
     fn on_update(&mut self, player_state: &PlayerState) {
         let end_of_track = player_state.end_of_track();
         if end_of_track {
-            self.index = (self.index + 1) % self.tracks.len() as u32;
-            let track = self.tracks[self.index as usize];
-            self.player.load(track, true, 0);
-        } else {
-            self.notify_with_player_state(false, None, player_state);
+            if let Some(ref player) = self.player {
+                self.index = (self.index + 1) % self.tracks.len() as u32;
+                let track = self.tracks[self.index as usize];
+                player.load(track, true, 0);
+                return;
+            }
         }
+
+        self.notify_with_player_state(false, None, player_state);
     }
 
     fn handle(&mut self, frame: protocol::spirc::Frame) {
@@ -217,29 +224,41 @@ impl SpircInternal {
                     let play = frame.get_state().get_status() == PlayStatus::kPlayStatusPlay;
                     let track = self.tracks[self.index as usize];
                     let position = frame.get_state().get_position_ms();
-                    self.player.load(track, play, position);
+                    if let Some(ref player) = self.player {
+                        player.load(track, play, position);
+                    }
                 } else {
                     self.notify(false, Some(frame.get_ident()));
                 }
             }
             MessageType::kMessageTypePlay => {
-                self.player.play();
+                if let Some(ref player) = self.player {
+                    player.play();
+                }
             }
             MessageType::kMessageTypePause => {
-                self.player.pause();
+                if let Some(ref player) = self.player {
+                    player.pause();
+                }
             }
             MessageType::kMessageTypeNext => {
                 self.index = (self.index + 1) % self.tracks.len() as u32;
                 let track = self.tracks[self.index as usize];
-                self.player.load(track, true, 0);
+                if let Some(ref player) = self.player {
+                    player.load(track, true, 0);
+                }
             }
             MessageType::kMessageTypePrev => {
                 self.index = (self.index - 1) % self.tracks.len() as u32;
                 let track = self.tracks[self.index as usize];
-                self.player.load(track, true, 0);
+                if let Some(ref player) = self.player {
+                    player.load(track, true, 0);
+                }
             }
             MessageType::kMessageTypeSeek => {
-                self.player.seek(frame.get_position());
+                if let Some(ref player) = self.player {
+                    player.seek(frame.get_position());
+                }
             }
             MessageType::kMessageTypeReplace => {
                 self.reload_tracks(&frame);
@@ -247,11 +266,15 @@ impl SpircInternal {
             MessageType::kMessageTypeNotify => {
                 if self.is_active && frame.get_device_state().get_is_active() {
                     self.is_active = false;
-                    self.player.stop();
+                    if let Some(ref player) = self.player {
+                        player.stop();
+                    }
                 }
             }
             MessageType::kMessageTypeVolume => {
-                self.player.volume(frame.get_volume() as u16);
+                if let Some(ref player) = self.player {
+                    player.volume(frame.get_volume() as u16);
+                }
             }
             MessageType::kMessageTypeGoodbye => {
                 if frame.has_ident() {
@@ -428,7 +451,11 @@ impl<'a> CommandSender<'a> {
 
     fn send(self) {
         let state = self.player_state.map_or_else(|| {
-            Cow::Owned(self.spirc_internal.player.state())
+            if let Some(ref player) = self.spirc_internal.player {
+                Cow::Owned(player.state())
+            } else {
+                Cow::Owned(PlayerState::default())
+            }
         }, |s| {
             Cow::Borrowed(s)
         });
