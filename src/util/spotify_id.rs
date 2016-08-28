@@ -99,16 +99,16 @@ impl FileId {
 
 #[test]
 fn test_base16() {
-    let str = "a719283ffb17abcd0192ea49b20139ff";
+    let spotify_id_str = "a719283ffb17abcd0192ea49b20139ff";
     let zeros = "00000000000000000000000000000000";
-    assert_eq!(str, SpotifyId::from_base16(str).to_base16());
+    assert_eq!(spotify_id_str, SpotifyId::from_base16(spotify_id_str).to_base16());
     assert_eq!(zeros, SpotifyId::from_base16(zeros).to_base16());
 }
 
 #[test]
 fn test_base62() {
-    let str = "6rqhFgbbKwnb9MLmUQDhG6";
+    let spotify_id_str = "6rqhFgbbKwnb9MLmUQDhG6";
     let zeros = "0000000000000000000000";
-    assert_eq!(str, SpotifyId::from_base62(str).to_base62());
+    assert_eq!(spotify_id_str, SpotifyId::from_base62(spotify_id_str).to_base62());
     assert_eq!(zeros, SpotifyId::from_base62(zeros).to_base62());
 }
