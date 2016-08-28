@@ -192,11 +192,10 @@ impl SpircInternal {
                 self.tracks.index = (self.tracks.index + 1) % self.tracks.ids.len() as u32;
                 let track = self.tracks.ids[self.tracks.index as usize];
                 player.load(track, true, 0);
-                return;
             }
+        } else {
+            self.notify_with_player_state(false, None, player_state);
         }
-
-        self.notify_with_player_state(false, None, player_state);
     }
 
     fn handle(&mut self, frame: protocol::spirc::Frame) {
