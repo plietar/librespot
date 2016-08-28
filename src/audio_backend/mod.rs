@@ -5,9 +5,9 @@ pub trait Open {
 }
 
 pub trait Sink {
-    fn start(&self) -> io::Result<()>;
-    fn stop(&self) -> io::Result<()>;
-    fn write(&self, data: &[i16]) -> io::Result<()>;
+    fn start(&mut self) -> io::Result<()>;
+    fn stop(&mut self) -> io::Result<()>;
+    fn write(&mut self, data: &[i16]) -> io::Result<()>;
 }
 
 /*
@@ -54,6 +54,11 @@ fn mk_sink<S: Sink + Open + 'static>(device: Option<&str>) -> Box<Sink> {
     Box::new(S::open(device))
 }
 
+#[cfg(feature = "alsa-backend")]
+mod alsa;
+#[cfg(feature = "alsa-backend")]
+use self::alsa::AlsaSink;
+
 #[cfg(feature = "portaudio-backend")]
 mod portaudio;
 #[cfg(feature = "portaudio-backend")]
@@ -70,6 +75,8 @@ declare_backends! {
         (&'static str,
          &'static (Fn(Option<&str>) -> Box<Sink> + Sync + Send + 'static))
     ] = &[
+        #[cfg(feature = "alsa-backend")]
+        ("alsa", &mk_sink::<AlsaSink>),
         #[cfg(feature = "portaudio-backend")]
         ("portaudio", &mk_sink::<PortAudioSink>),
         #[cfg(feature = "pulseaudio-backend")]
