@@ -2,3 +2,11 @@ target
 .cargo
 spotify_appkey.key
 .vagrant/
+
+# VIM
+[._]*.s[a-w][a-z]
+[._]s[a-w][a-z]
+Session.vim
+.netrwhist
+*~
+tags
