@@ -1,5 +1,5 @@
 use std;
-use util::u128;
+use extprim::u128::u128;
 use byteorder::{BigEndian, ByteOrder};
 use std::ascii::AsciiExt;
 
@@ -20,9 +20,9 @@ impl SpotifyId {
 
         let mut n: u128 = u128::zero();
         for c in data {
-            let d = BASE16_DIGITS.iter().position(|e| e == c).unwrap() as u8;
-            n = n * u128::from(16);
-            n = n + u128::from(d);
+            let d = BASE16_DIGITS.iter().position(|e| e == c).unwrap() as u64;
+            n = n * u128::new(16);
+            n = n + u128::new(d);
         }
 
         SpotifyId(n)
@@ -34,9 +34,9 @@ impl SpotifyId {
 
         let mut n: u128 = u128::zero();
         for c in data {
-            let d = BASE62_DIGITS.iter().position(|e| e == c).unwrap() as u8;
-            n = n * u128::from(62);
-            n = n + u128::from(d);
+            let d = BASE62_DIGITS.iter().position(|e| e == c).unwrap() as u64;
+            n = n * u128::new(62);
+            n = n + u128::new(d);
         }
 
         SpotifyId(n)
@@ -53,14 +53,23 @@ impl SpotifyId {
 
     pub fn to_base16(&self) -> String {
         let &SpotifyId(ref n) = self;
-        let (high, low) = n.parts();
 
         let mut data = [0u8; 32];
-        for i in 0..16 {
-            data[31 - i] = BASE16_DIGITS[(low.wrapping_shr(4 * i as u32) & 0xF) as usize];
+        for i in 0..32 {
+            data[31 - i] = BASE16_DIGITS[(n.wrapping_shr(4 * i as u32).low64() & 0xF) as usize];
         }
-        for i in 0..16 {
-            data[15 - i] = BASE16_DIGITS[(high.wrapping_shr(4 * i as u32) & 0xF) as usize];
+
+        std::str::from_utf8(&data).unwrap().to_owned()
+    }
+
+    pub fn to_base62(&self) -> String {
+        let &SpotifyId(mut n) = self;
+
+        let mut data = [0u8; 22];
+        let sixty_two = u128::new(62);
+        for i in 0..22 {
+            data[21-i] = BASE62_DIGITS[(n % sixty_two).low64() as usize];
+            n /= sixty_two;
         }
 
         std::str::from_utf8(&data).unwrap().to_owned()
@@ -68,12 +77,11 @@ impl SpotifyId {
 
     pub fn to_raw(&self) -> [u8; 16] {
         let &SpotifyId(ref n) = self;
-        let (high, low) = n.parts();
 
         let mut data = [0u8; 16];
 
-        BigEndian::write_u64(&mut data[0..8], high);
-        BigEndian::write_u64(&mut data[8..16], low);
+        BigEndian::write_u64(&mut data[0..8], n.high64());
+        BigEndian::write_u64(&mut data[8..16], n.low64());
 
         data
     }
@@ -87,4 +95,20 @@ impl FileId {
             .collect::<Vec<String>>()
             .concat()
     }
+}
+
+#[test]
+fn test_base16() {
+    let str = "a719283ffb17abcd0192ea49b20139ff";
+    let zeros = "00000000000000000000000000000000";
+    assert_eq!(str, SpotifyId::from_base16(str).to_base16());
+    assert_eq!(zeros, SpotifyId::from_base16(zeros).to_base16());
+}
+
+#[test]
+fn test_base62() {
+    let str = "6rqhFgbbKwnb9MLmUQDhG6";
+    let zeros = "0000000000000000000000";
+    assert_eq!(str, SpotifyId::from_base62(str).to_base62());
+    assert_eq!(zeros, SpotifyId::from_base62(zeros).to_base62());
 }
