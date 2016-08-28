@@ -349,7 +349,7 @@ impl SpircInternal {
     }
 
     fn device_state(&self, player_state: &PlayerState) -> protocol::spirc::DeviceState {
-        protobuf_init!(protocol::spirc::DeviceState::new(), {
+        let mut device_state = protobuf_init!(protocol::spirc::DeviceState::new(), {
             sw_version: version::version_string(),
             is_active: self.is_active,
             can_play: self.can_play,
@@ -405,7 +405,18 @@ impl SpircInternal {
                     ]
                 }
             ],
-        })
+        });
+
+        if !self.can_play {
+            let capabilities = { device_state.take_capabilities()
+                .into_iter()
+                .filter(|x| x.get_typ() != protocol::spirc::CapabilityType::kCanBePlayer)
+                .collect()
+            };
+            device_state.set_capabilities(capabilities);
+        }
+
+        device_state
     }
 
     fn uri(&self) -> String {
