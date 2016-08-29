@@ -11,6 +11,7 @@
 #[macro_use]
 extern crate lazy_static;
 
+extern crate extprim;
 extern crate bit_set;
 extern crate byteorder;
 extern crate crypto;

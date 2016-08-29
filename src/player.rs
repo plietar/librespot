@@ -78,15 +78,7 @@ impl Player {
         where F: FnOnce() -> Box<Sink> + Send + 'static {
         let (cmd_tx, cmd_rx) = mpsc::channel();
 
-        let state = Arc::new(Mutex::new(PlayerState {
-            status: PlayStatus::kPlayStatusStop,
-            position_ms: 0,
-            position_measured_at: 0,
-            update_time: util::now_ms(),
-            volume: 0xFFFF,
-            track: None,
-            end_of_track: false,
-        }));
+        let state = Arc::new(Mutex::new(PlayerState::default()));
 
         let observers = Arc::new(Mutex::new(Vec::new()));
 
@@ -407,5 +399,19 @@ impl PlayerState {
 
     pub fn end_of_track(&self) -> bool {
         self.end_of_track
+    }
+}
+
+impl Default for PlayerState {
+    fn default() -> PlayerState {
+        PlayerState {
+            status: PlayStatus::kPlayStatusStop,
+            position_ms: 0,
+            position_measured_at: 0,
+            update_time: util::now_ms(),
+            volume: 0xFFFF,
+            track: None,
+            end_of_track: false,
+        }
     }
 }

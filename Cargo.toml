@@ -21,6 +21,7 @@ path = "src/main.rs"
 path = "protocol"
 
 [dependencies]
+extprim         = "~1.1.0"
 bit-set         = "~0.4.0"
 byteorder       = "~0.5.1"
 eventual        = "~0.1.6"

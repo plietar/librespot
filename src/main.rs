@@ -43,7 +43,7 @@ fn main() {
 
     let player = main_helper::create_player(&session, &matches);
 
-    let spirc = SpircManager::new(session.clone(), player);
+    let spirc = SpircManager::new(session.clone(), Some(player));
     thread::spawn(move || spirc.run());
 
     loop {

@@ -17,8 +17,14 @@ pub use protocol::spirc::{PlayStatus, MessageType};
 #[derive(Clone)]
 pub struct SpircManager(Arc<Mutex<SpircInternal>>);
 
+#[derive(Clone, Debug)]
+pub struct TracksState {
+    pub ids: Vec<SpotifyId>,
+    pub index: u32,
+}
+
 struct SpircInternal {
-    player: Player,
+    player: Option<Player>,
     session: Session,
 
     seq_nr: u32,
@@ -37,16 +43,18 @@ struct SpircInternal {
     last_command_ident: String,
     last_command_msgid: u32,
 
-    tracks: Vec<SpotifyId>,
-    index: u32,
+    tracks: TracksState,
 
     devices: HashMap<String, String>,
+    device_tracks: HashMap<String, TracksState>,
 }
 
 impl SpircManager {
-    pub fn new(session: Session, player: Player) -> SpircManager {
+    pub fn new(session: Session, player: Option<Player>) -> SpircManager {
         let ident = session.device_id().to_owned();
         let name = session.config().device_name.clone();
+
+        let player_is_some = player.is_some();
 
         SpircManager(Arc::new(Mutex::new(SpircInternal {
             player: player,
@@ -57,7 +65,7 @@ impl SpircManager {
             name: name,
             ident: ident,
             device_type: 5,
-            can_play: true,
+            can_play: player_is_some,
 
             repeat: false,
             shuffle: false,
@@ -68,10 +76,10 @@ impl SpircManager {
             last_command_ident: String::new(),
             last_command_msgid: 0,
 
-            tracks: Vec::new(),
-            index: 0,
+            tracks: TracksState { ids: Vec::new(), index: 0 },
 
             devices: HashMap::new(),
+            device_tracks: HashMap::new(),
         })))
     }
 
@@ -86,12 +94,14 @@ impl SpircManager {
             // Use a weak pointer to avoid creating an Rc cycle between the player and the
             // SpircManager
             let _self = Arc::downgrade(&self.0);
-            internal.player.add_observer(Box::new(move |state| {
-                if let Some(_self) = _self.upgrade() {
-                    let mut internal = _self.lock().unwrap();
-                    internal.on_update(state);
-                }
-            }));
+            if let Some(ref player) = internal.player {
+                player.add_observer(Box::new(move |state| {
+                    if let Some(_self) = _self.upgrade() {
+                        let mut internal = _self.lock().unwrap();
+                        internal.on_update(state);
+                    }
+                }));
+            }
 
             rx
         };
@@ -113,6 +123,14 @@ impl SpircManager {
 
     pub fn devices(&self) -> HashMap<String, String> {
         self.0.lock().unwrap().devices.clone()
+    }
+
+    pub fn tracks(&self) -> TracksState {
+        self.0.lock().unwrap().tracks.clone()
+    }
+
+    pub fn device_tracks(&self, recipient: &str) -> Option<TracksState> {
+        self.0.lock().unwrap().device_tracks.get(recipient).cloned()
     }
 
     pub fn send_play(&self, recipient: &str) {
@@ -143,30 +161,46 @@ impl SpircManager {
             .send();
     }
 
-    pub fn send_replace_tracks<I: Iterator<Item = SpotifyId>>(&mut self,
-                                                              recipient: &str,
-                                                              track_ids: I) {
-        let state = track_ids_to_state(track_ids);
-        let mut internal = self.0.lock().unwrap();
-        CommandSender::new(&mut *internal, MessageType::kMessageTypeReplace)
-            .recipient(recipient)
-            .state(state)
-            .send();
+    pub fn send_append_tracks<I: Iterator<Item = SpotifyId>>(&mut self,
+                                                             recipient: &str,
+                                                             track_ids: I) {
+        if let Some(device_state) = self.device_tracks(recipient) {
+
+            let current_queue = device_state.ids.into_iter().map(track_id_to_track_ref);
+            let new_tracks = track_ids.map(track_id_to_track_ref);
+
+            let mut state = protobuf_init!(protocol::spirc::State::new(), {
+                track: RepeatedField::from_vec(current_queue.chain(new_tracks).collect())
+            });
+
+            state.set_status(PlayStatus::kPlayStatusPlay);
+            state.set_playing_track_index(device_state.index);
+
+            let mut internal = self.0.lock().unwrap();
+            CommandSender::new(&mut *internal, MessageType::kMessageTypeReplace)
+                .recipient(recipient)
+                .state(state)
+                .send();
+        }
     }
 
-    pub fn send_load_tracks<I: Iterator<Item = SpotifyId>>(&mut self,
+    pub fn send_replace_queue<I: Iterator<Item = SpotifyId>>(&mut self,
                                                            recipient: &str,
                                                            track_ids: I) {
-        let state = track_ids_to_state(track_ids);
+        let tracks = track_ids.map(track_id_to_track_ref).collect();
+        let mut state = protobuf_init!(protocol::spirc::State::new(), {
+            track: RepeatedField::from_vec(tracks)
+        });
+
+        state.set_status(PlayStatus::kPlayStatusPlay);
+        state.set_position_ms(0);
+        state.set_playing_track_index(0);
+
         let mut internal = self.0.lock().unwrap();
         CommandSender::new(&mut *internal, MessageType::kMessageTypeLoad)
             .recipient(recipient)
             .state(state)
             .send();
-    }
-
-    pub fn get_queue(&self) -> Vec<SpotifyId> {
-        self.0.lock().unwrap().tracks.clone()
     }
 }
 
@@ -174,9 +208,11 @@ impl SpircInternal {
     fn on_update(&mut self, player_state: &PlayerState) {
         let end_of_track = player_state.end_of_track();
         if end_of_track {
-            self.index = (self.index + 1) % self.tracks.len() as u32;
-            let track = self.tracks[self.index as usize];
-            self.player.load(track, true, 0);
+            if let Some(ref player) = self.player {
+                self.tracks.index = (self.tracks.index + 1) % self.tracks.ids.len() as u32;
+                let track = self.tracks.ids[self.tracks.index as usize];
+                player.load(track, true, 0);
+            }
         } else {
             self.notify_with_player_state(false, None, player_state);
         }
@@ -208,46 +244,65 @@ impl SpircInternal {
                     self.became_active_at = util::now_ms();
                 }
 
-                self.reload_tracks(&frame);
-                if self.tracks.len() > 0 {
+                self.tracks.reload_tracks(&frame);
+                if self.tracks.ids.len() > 0 {
                     let play = frame.get_state().get_status() == PlayStatus::kPlayStatusPlay;
-                    let track = self.tracks[self.index as usize];
+                    let track = self.tracks.ids[self.tracks.index as usize];
                     let position = frame.get_state().get_position_ms();
-                    self.player.load(track, play, position);
+                    if let Some(ref player) = self.player {
+                        player.load(track, play, position);
+                    }
                 } else {
                     self.notify(false, Some(frame.get_ident()));
                 }
             }
             MessageType::kMessageTypePlay => {
-                self.player.play();
+                if let Some(ref player) = self.player {
+                    player.play();
+                }
             }
             MessageType::kMessageTypePause => {
-                self.player.pause();
+                if let Some(ref player) = self.player {
+                    player.pause();
+                }
             }
             MessageType::kMessageTypeNext => {
-                self.index = (self.index + 1) % self.tracks.len() as u32;
-                let track = self.tracks[self.index as usize];
-                self.player.load(track, true, 0);
+                self.tracks.index = (self.tracks.index + 1) % self.tracks.ids.len() as u32;
+                let track = self.tracks.ids[self.tracks.index as usize];
+                if let Some(ref player) = self.player {
+                    player.load(track, true, 0);
+                }
             }
             MessageType::kMessageTypePrev => {
-                self.index = (self.index - 1) % self.tracks.len() as u32;
-                let track = self.tracks[self.index as usize];
-                self.player.load(track, true, 0);
+                self.tracks.index = (self.tracks.index - 1) % self.tracks.ids.len() as u32;
+                let track = self.tracks.ids[self.tracks.index as usize];
+                if let Some(ref player) = self.player {
+                    player.load(track, true, 0);
+                }
             }
             MessageType::kMessageTypeSeek => {
-                self.player.seek(frame.get_position());
+                if let Some(ref player) = self.player {
+                    player.seek(frame.get_position());
+                }
             }
             MessageType::kMessageTypeReplace => {
-                self.reload_tracks(&frame);
+                self.tracks.reload_tracks(&frame);
             }
             MessageType::kMessageTypeNotify => {
+                self.device_tracks.entry(frame.get_ident().to_owned())
+                                  .or_insert_with(TracksState::default)
+                                  .reload_tracks(&frame);
                 if self.is_active && frame.get_device_state().get_is_active() {
                     self.is_active = false;
-                    self.player.stop();
+                    if let Some(ref player) = self.player {
+                        player.stop();
+                    }
                 }
             }
             MessageType::kMessageTypeVolume => {
-                self.player.volume(frame.get_volume() as u16);
+                if let Some(ref player) = self.player {
+                    player.volume(frame.get_volume() as u16);
+                }
             }
             MessageType::kMessageTypeGoodbye => {
                 if frame.has_ident() {
@@ -256,16 +311,6 @@ impl SpircInternal {
             }
             _ => (),
         }
-    }
-
-    fn reload_tracks(&mut self, ref frame: &protocol::spirc::Frame) {
-        self.index = frame.get_state().get_playing_track_index();
-        self.tracks = frame.get_state()
-                           .get_track()
-                           .iter()
-                           .filter(|track| track.has_gid())
-                           .map(|track| SpotifyId::from_raw(track.get_gid()))
-                           .collect();
     }
 
     fn notify(&mut self, hello: bool, recipient: Option<&str>) {
@@ -306,8 +351,8 @@ impl SpircInternal {
             position_ms: position_ms,
             position_measured_at: position_measured_at as u64,
 
-            playing_track_index: self.index,
-            track: self.tracks.iter().map(|track| {
+            playing_track_index: self.tracks.index,
+            track: self.tracks.ids.iter().map(|track| {
                 protobuf_init!(protocol::spirc::TrackRef::new(), {
                     gid: track.to_raw().to_vec()
                 })
@@ -324,7 +369,7 @@ impl SpircInternal {
     }
 
     fn device_state(&self, player_state: &PlayerState) -> protocol::spirc::DeviceState {
-        protobuf_init!(protocol::spirc::DeviceState::new(), {
+        let mut device_state = protobuf_init!(protocol::spirc::DeviceState::new(), {
             sw_version: version::version_string(),
             is_active: self.is_active,
             can_play: self.can_play,
@@ -380,11 +425,40 @@ impl SpircInternal {
                     ]
                 }
             ],
-        })
+        });
+
+        if !self.can_play {
+            let capabilities = { device_state.take_capabilities()
+                .into_iter()
+                .filter(|x| x.get_typ() != protocol::spirc::CapabilityType::kCanBePlayer)
+                .collect()
+            };
+            device_state.set_capabilities(capabilities);
+        }
+
+        device_state
     }
 
     fn uri(&self) -> String {
         format!("hm://remote/user/{}", self.session.username())
+    }
+}
+
+impl TracksState {
+    pub fn reload_tracks(&mut self, ref frame: &protocol::spirc::Frame) {
+        self.index = frame.get_state().get_playing_track_index();
+        self.ids = frame.get_state()
+                           .get_track()
+                           .iter()
+                           .filter(|track| track.has_gid())
+                           .map(|track| SpotifyId::from_raw(track.get_gid()))
+                           .collect();
+    }
+}
+
+impl Default for TracksState {
+    fn default() -> TracksState {
+        TracksState { ids: vec![], index: 0 }
     }
 }
 
@@ -424,7 +498,11 @@ impl<'a> CommandSender<'a> {
 
     fn send(self) {
         let state = self.player_state.map_or_else(|| {
-            Cow::Owned(self.spirc_internal.player.state())
+            if let Some(ref player) = self.spirc_internal.player {
+                Cow::Owned(player.state())
+            } else {
+                Cow::Owned(PlayerState::default())
+            }
         }, |s| {
             Cow::Borrowed(s)
         });
@@ -442,7 +520,9 @@ impl<'a> CommandSender<'a> {
             state_update_id: state.update_time()
         });
 
-        if self.spirc_internal.is_active {
+        if let Some(state) = self.state {
+            pkt.set_state(state);
+        } else {
             pkt.set_state(self.spirc_internal.spirc_state(&state));
         }
 
@@ -458,13 +538,6 @@ impl<'a> CommandSender<'a> {
     }
 }
 
-fn track_ids_to_state<I: Iterator<Item = SpotifyId>>(track_ids: I) -> protocol::spirc::State {
-    let tracks: Vec<protocol::spirc::TrackRef> =
-        track_ids.map(|i| {
-                     protobuf_init!(protocol::spirc::TrackRef::new(), { gid: i.to_raw().to_vec()})
-                 })
-                 .collect();
-    protobuf_init!(protocol::spirc::State::new(), {
-                    track: RepeatedField::from_vec(tracks)
-                })
+fn track_id_to_track_ref(id: SpotifyId) -> protocol::spirc::TrackRef {
+    protobuf_init!(protocol::spirc::TrackRef::new(), { gid: id.to_raw().to_vec(), queued: true })
 }
