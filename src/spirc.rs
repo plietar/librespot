@@ -161,21 +161,41 @@ impl SpircManager {
             .send();
     }
 
-    pub fn send_replace_tracks<I: Iterator<Item = SpotifyId>>(&mut self,
-                                                              recipient: &str,
-                                                              track_ids: I) {
-        let state = track_ids_to_state(track_ids);
-        let mut internal = self.0.lock().unwrap();
-        CommandSender::new(&mut *internal, MessageType::kMessageTypeReplace)
-            .recipient(recipient)
-            .state(state)
-            .send();
+    pub fn send_append_tracks<I: Iterator<Item = SpotifyId>>(&mut self,
+                                                             recipient: &str,
+                                                             track_ids: I) {
+        if let Some(device_state) = self.device_tracks(recipient) {
+
+            let current_queue = device_state.ids.into_iter().map(track_id_to_track_ref);
+            let new_tracks = track_ids.map(track_id_to_track_ref);
+
+            let mut state = protobuf_init!(protocol::spirc::State::new(), {
+                track: RepeatedField::from_vec(current_queue.chain(new_tracks).collect())
+            });
+
+            state.set_status(PlayStatus::kPlayStatusPlay);
+            state.set_playing_track_index(device_state.index);
+
+            let mut internal = self.0.lock().unwrap();
+            CommandSender::new(&mut *internal, MessageType::kMessageTypeReplace)
+                .recipient(recipient)
+                .state(state)
+                .send();
+        }
     }
 
-    pub fn send_load_tracks<I: Iterator<Item = SpotifyId>>(&mut self,
+    pub fn send_replace_queue<I: Iterator<Item = SpotifyId>>(&mut self,
                                                            recipient: &str,
                                                            track_ids: I) {
-        let state = track_ids_to_state(track_ids);
+        let tracks = track_ids.map(track_id_to_track_ref).collect();
+        let mut state = protobuf_init!(protocol::spirc::State::new(), {
+            track: RepeatedField::from_vec(tracks)
+        });
+
+        state.set_status(PlayStatus::kPlayStatusPlay);
+        state.set_position_ms(0);
+        state.set_playing_track_index(0);
+
         let mut internal = self.0.lock().unwrap();
         CommandSender::new(&mut *internal, MessageType::kMessageTypeLoad)
             .recipient(recipient)
@@ -500,7 +520,9 @@ impl<'a> CommandSender<'a> {
             state_update_id: state.update_time()
         });
 
-        if self.spirc_internal.is_active {
+        if let Some(state) = self.state {
+            pkt.set_state(state);
+        } else {
             pkt.set_state(self.spirc_internal.spirc_state(&state));
         }
 
@@ -516,13 +538,6 @@ impl<'a> CommandSender<'a> {
     }
 }
 
-fn track_ids_to_state<I: Iterator<Item = SpotifyId>>(track_ids: I) -> protocol::spirc::State {
-    let tracks: Vec<protocol::spirc::TrackRef> =
-        track_ids.map(|i| {
-                     protobuf_init!(protocol::spirc::TrackRef::new(), { gid: i.to_raw().to_vec()})
-                 })
-                 .collect();
-    protobuf_init!(protocol::spirc::State::new(), {
-                    track: RepeatedField::from_vec(tracks)
-                })
+fn track_id_to_track_ref(id: SpotifyId) -> protocol::spirc::TrackRef {
+    protobuf_init!(protocol::spirc::TrackRef::new(), { gid: id.to_raw().to_vec(), queued: true })
 }
