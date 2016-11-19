@@ -1,6 +1,6 @@
 use std::io::{Read, Seek, SeekFrom, Result};
 
-pub struct Subfile<T: Read + Seek> {
+pub struct Subfile<T> {
     stream: T,
     offset: u64,
 }
@@ -15,13 +15,13 @@ impl<T: Read + Seek> Subfile<T> {
     }
 }
 
-impl<T: Read + Seek> Read for Subfile<T> {
+impl<T: Read> Read for Subfile<T> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         self.stream.read(buf)
     }
 }
 
-impl<T: Read + Seek> Seek for Subfile<T> {
+impl<T: Seek> Seek for Subfile<T> {
     fn seek(&mut self, mut pos: SeekFrom) -> Result<u64> {
         pos = match pos {
             SeekFrom::Start(offset) => SeekFrom::Start(offset + self.offset),

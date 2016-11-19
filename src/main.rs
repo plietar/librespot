@@ -1,63 +1,65 @@
-extern crate getopts;
-extern crate librespot;
+extern crate argparse;
 extern crate env_logger;
-#[macro_use]
-extern crate log;
-extern crate simple_signal;
+extern crate futures;
+extern crate librespot;
+extern crate rpassword;
+extern crate tokio_core as tokio;
 
-use std::process::exit;
-use std::thread;
-use std::env;
+use argparse::ArgumentParser;
+use librespot::{Credentials, Session, SpircManager};
+use rpassword::prompt_password_stdout;
+use tokio::reactor::Core;
 
-use librespot::spirc::SpircManager;
-use librespot::main_helper;
-
-use simple_signal::{Signal, Signals};
-
-fn usage(program: &str, opts: &getopts::Options) -> String {
-    let brief = format!("Usage: {} [options]", program);
-    format!("{}", opts.usage(&brief))
+#[derive(Default)]
+struct Args {
+    name: String,
+    username: String,
+    password: Option<String>,
 }
 
-fn main() {
-    if env::var("RUST_LOG").is_err() {
-        env::set_var("RUST_LOG", "info,librespot=trace")
+impl Args {
+    fn parse_or_exit() -> Args {
+        let mut args = Args::default();
+
+        {
+            let mut ap = ArgumentParser::new();
+            ap.set_description("librespot");
+
+            ap.refer(&mut args.name)
+              .add_option(&["--name"], argparse::Store, "Device name")
+              .required();
+            ap.refer(&mut args.username)
+              .add_option(&["-u", "--username"], argparse::Store, "Username")
+              .required();
+            ap.refer(&mut args.password)
+              .add_option(&["-p", "--password"], argparse::StoreOption, "Password");
+
+            ap.parse_args_or_exit();
+        }
+
+        args
     }
+
+    fn credentials(&self) -> Credentials {
+        let password = self.password
+            .as_ref()
+            .map(String::to_owned)
+            .unwrap_or_else(|| prompt_password_stdout("Password: ").unwrap());
+
+        Credentials::with_password(self.username.to_owned(), password)
+    }
+}
+
+pub fn main() {
     env_logger::init().unwrap();
 
-    let mut opts = getopts::Options::new();
-    main_helper::add_session_arguments(&mut opts);
-    main_helper::add_authentication_arguments(&mut opts);
-    main_helper::add_player_arguments(&mut opts);
+    let args = Args::parse_or_exit();
 
-    let args: Vec<String> = std::env::args().collect();
+    let mut core = Core::new().unwrap();
+    let session = Session::new(&core.handle());
 
-    let matches = match opts.parse(&args[1..]) {
-        Ok(m) => m,
-        Err(f) => {
-            error!("Error: {}\n{}", f.to_string(), usage(&args[0], &opts));
-            exit(1)
-        }
-    };
+    session.spawn(session.connection().connect(args.credentials()));
 
-    let session = main_helper::create_session(&matches);
-    let credentials = main_helper::get_credentials(&session, &matches);
-    session.login(credentials).unwrap();
-
-    let player = main_helper::create_player(&session, &matches);
-
-    let spirc = SpircManager::new(session.clone(), player);
-    let spirc_signal = spirc.clone();
-    thread::spawn(move || spirc.run());
-    Signals::set_handler(&[Signal::Int, Signal::Term],
-        move |signals| {
-            println!("Signal received: {:?}. Say goodbye and exit.", signals);
-            spirc_signal.send_goodbye();
-            exit(0);
-        }
-    );
-
-    loop {
-        session.poll();
-    }
+    let ident = String::from("foobar");
+    core.run(SpircManager::new(&session, ident, args.name.clone())).unwrap();
 }

@@ -12,12 +12,14 @@ fn main() {
 
     let mut compiler = protobuf_build::Compiler::new(&proto, &out);
 
-    let files = ["keyexchange",
-                 "authentication",
-                 "mercury",
-                 "metadata",
-                 "pubsub",
-                 "spirc"];
+    let files = [
+        "authentication",
+        "keyexchange",
+        "mercury",
+        "metadata",
+        "pubsub",
+        "spirc",
+    ];
 
     for file in &files {
         compiler.compile(&((*file).to_owned() + ".proto")).unwrap();

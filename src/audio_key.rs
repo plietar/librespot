@@ -1,92 +1,92 @@
-use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-use eventual;
+use session::{SessionWeak, Component};
+use futures::{oneshot, Complete, Canceled, Future};
 use std::collections::HashMap;
-use std::io::{Cursor, Read, Write};
+use byteorder::{BigEndian, ByteOrder, WriteBytesExt};
+use std::io::Write;
+use types::*;
+use tokio::io::EasyBuf;
 
 use util::{SpotifyId, FileId};
-use session::{Session, PacketHandler};
-
-pub type AudioKey = [u8; 16];
-#[derive(Debug,Hash,PartialEq,Eq,Copy,Clone)]
-pub struct AudioKeyError;
 
 #[derive(Debug,Hash,PartialEq,Eq,Copy,Clone)]
-struct AudioKeyId(SpotifyId, FileId);
+pub struct AudioKey([u8; 16]);
 
-pub struct AudioKeyManager {
+pub type AudioKeyManager = Component<AudioKeyManagerInner>;
+pub struct AudioKeyManagerInner {
     next_seq: u32,
-    pending: HashMap<u32, AudioKeyId>,
-    cache: HashMap<AudioKeyId, Vec<eventual::Complete<AudioKey, AudioKeyError>>>,
+    pending: HashMap<u32, Complete<SpResult<AudioKey>>>,
 }
 
 impl AudioKeyManager {
-    pub fn new() -> AudioKeyManager {
-        AudioKeyManager {
-            next_seq: 1,
-            pending: HashMap::new(),
-            cache: HashMap::new(),
+    pub fn new(session: SessionWeak) -> AudioKeyManager {
+        Component::create(session,
+                          AudioKeyManagerInner {
+                              next_seq: 0,
+                              pending: HashMap::new(),
+                          })
+    }
+
+    pub fn request<'a>(&self, track: SpotifyId, file: FileId) -> SpFuture<'a, AudioKey> {
+        let (complete, future) = oneshot();
+        let seq = {
+            let mut inner = self.lock();
+            let seq = inner.next_seq;
+            inner.next_seq += 1;
+            seq
+        };
+
+        let manager = self.clone();
+        self.send_key_request(seq, track, file).and_then(move |()| {
+            manager.lock().pending.insert(seq, complete);
+
+            future.then(|result| {
+                match result {
+                    Ok(result) => result,
+                    Err(Canceled) => {
+                        Err(SpError::InternalError("audio key complete dropped"))
+                    },
+                }
+            })
+        }).sp_boxed()
+    }
+
+    pub fn dispatch(&self, cmd: u8, data: EasyBuf) {
+        let data = data.as_ref();
+        let seq = BigEndian::read_u32(&data);
+        let complete = {
+            let mut inner = self.lock();
+            inner.pending.remove(&seq)
+        };
+
+        if let Some(complete) = complete {
+            match cmd {
+                0xd => {
+                    let mut key = [0u8; 16];
+                    key.copy_from_slice(&data[4..20]);
+                    complete.complete(Ok(AudioKey(key)));
+                }
+                0xe => {
+                    println!("{:x} {:x}", data[4], data[5]);
+                    complete.complete(Err(SpError::ProtocolError("no key found")));
+                }
+                _ => (),
+            }
         }
     }
 
-    fn send_key_request(&mut self, session: &Session, track: SpotifyId, file: FileId) -> u32 {
-        let seq = self.next_seq;
-        self.next_seq += 1;
-
+    fn send_key_request<'a>(&self, seq: u32, track: SpotifyId, file: FileId) -> SpFuture<'a, ()> {
         let mut data: Vec<u8> = Vec::new();
         data.write(&file.0).unwrap();
         data.write(&track.to_raw()).unwrap();
         data.write_u32::<BigEndian>(seq).unwrap();
         data.write_u16::<BigEndian>(0x0000).unwrap();
 
-        session.send_packet(0xc, &data).unwrap();
-
-        seq
-    }
-
-    pub fn request(&mut self,
-                   session: &Session,
-                   track: SpotifyId,
-                   file: FileId)
-                   -> eventual::Future<AudioKey, AudioKeyError> {
-
-        let id = AudioKeyId(track, file);
-        self.cache
-            .get_mut(&id)
-            .map(|ref mut requests| {
-                let (tx, rx) = eventual::Future::pair();
-                requests.push(tx);
-                rx
-            })
-            .unwrap_or_else(|| {
-                let seq = self.send_key_request(session, track, file);
-                self.pending.insert(seq, id.clone());
-
-                let (tx, rx) = eventual::Future::pair();
-                self.cache.insert(id, vec![tx]);
-                rx
-            })
+        self.session().connection().send(0xc, data)
     }
 }
 
-impl PacketHandler for AudioKeyManager {
-    fn handle(&mut self, cmd: u8, data: Vec<u8>, _session: &Session) {
-        let mut data = Cursor::new(data);
-        let seq = data.read_u32::<BigEndian>().unwrap();
-
-        if let Some(callbacks) = self.pending.remove(&seq).and_then(|id| self.cache.remove(&id)) {
-            if cmd == 0xd {
-                let mut key = [0u8; 16];
-                data.read_exact(&mut key).unwrap();
-
-                for cb in callbacks {
-                    cb.complete(key);
-                }
-            } else if cmd == 0xe {
-                let error = AudioKeyError;
-                for cb in callbacks {
-                    cb.fail(error);
-                }
-            }
-        }
+impl AsRef<[u8]> for AudioKey {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
     }
 }
