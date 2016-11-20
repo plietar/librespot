@@ -8,13 +8,12 @@ extern crate tokio_core as tokio;
 use argparse::ArgumentParser;
 use futures::Stream;
 use librespot::{Credentials, Session, SpircManager};
-use librespot::authentication::Discovery;
 use librespot::connection::ConnectionChange;
 use rpassword::prompt_password_stdout;
 use tokio::reactor::Core;
 
 #[derive(Default)]
-struct Args {
+pub struct Args {
     name: String,
     username: Option<String>,
     password: Option<String>,
@@ -36,8 +35,7 @@ impl Args {
               .add_option(&["-u", "--username"], argparse::StoreOption, "Username");
             ap.refer(&mut args.password)
               .add_option(&["-p", "--password"], argparse::StoreOption, "Password");
-            ap.refer(&mut args.discovery)
-              .add_option(&["--discovery"], argparse::StoreTrue, "Enable discovery mode");
+            discovery::add_flag(&mut ap, &mut args.discovery);
 
             ap.parse_args_or_exit();
         }
@@ -72,13 +70,7 @@ pub fn main() {
     let session = Session::new(&core.handle());
 
     if args.discovery {
-        let session_ = session.clone();
-        let discovery = Discovery::new(&core.handle(), args.name.clone(), session.device_id()).unwrap();
-        let task = discovery.map_err(From::from).and_then(move |creds| {
-            session_.connection().connect(creds)
-        }).for_each(|_| Ok(()));
-
-        session.spawn(task);
+        discovery::start(&args, &session);
     }
 
     if let Some(credentials) = args.credentials() {
@@ -92,4 +84,38 @@ pub fn main() {
     }));
 
     core.run(SpircManager::new(&session, args.name.clone())).unwrap();
+}
+
+#[cfg(not(target_os="windows"))]
+mod discovery {
+    pub use super::Args;
+    use librespot::authentication::Discovery;
+    use librespot::Session;
+    use argparse::{self, ArgumentParser};
+    use futures::Stream;
+
+    pub fn add_flag<'a>(ap: &mut ArgumentParser<'a>, flag: &'a mut bool) {
+        ap.refer(flag)
+          .add_option(&["--discovery"], argparse::StoreTrue, "Enable discovery mode");
+    }
+
+    pub fn start(args: &Args, session: &Session) {
+        let session_ = session.clone();
+        let discovery = Discovery::new(&session.handle(), args.name.clone(), session.device_id()).unwrap();
+        let task = discovery.map_err(From::from).and_then(move |creds| {
+            session_.connection().connect(creds)
+        }).for_each(|_| Ok(()));
+
+        session.spawn(task);
+    }
+}
+
+#[cfg(target_os="windows")]
+mod discovery {
+    pub use super::Args;
+    use librespot::Session;
+    use argparse::ArgumentParser;
+
+    pub fn add_flag(_ap: &mut ArgumentParser, _flag: &mut bool) { }
+    pub fn start(_args: &Args, _session: &Session) { }
 }

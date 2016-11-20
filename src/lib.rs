@@ -20,7 +20,6 @@ extern crate crypto;
 extern crate hyper;
 extern crate librespot_protocol as protocol;
 extern crate lewton;
-extern crate mdns;
 extern crate ogg;
 extern crate num;
 extern crate protobuf;
@@ -32,6 +31,9 @@ extern crate shannon;
 extern crate tokio_service;
 extern crate url;
 extern crate uuid;
+
+#[cfg(not(target_os="windows"))]
+extern crate mdns;
 
 // include!/include_bytes! don't play nice with syntex, so place these here
 pub mod version;

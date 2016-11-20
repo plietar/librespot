@@ -43,7 +43,6 @@ uuid = { version = "0.3.1", features = ["v4"] }
 url = "1.2.3"
 
 json_macros = { git = "https://github.com/plietar/json_macros" }
-mdns = { git = "https://github.com/plietar/rust-mdns" }
 protobuf_macros = { git = "https://github.com/plietar/rust-protobuf-macros" }
 shannon = { git = "https://github.com/plietar/rust-shannon" }
 
@@ -51,6 +50,9 @@ futures = { git = "https://github.com/alexcrichton/futures-rs" }
 hyper = { git = "https://github.com/hyperium/hyper", branch="tokio" }
 tokio-core = { git = "https://github.com/tokio-rs/tokio-core" }
 tokio-service = { git = "https://github.com/tokio-rs/tokio-service" }
+
+[target.'cfg(not(target_os="windows"))'.dependencies]
+mdns = { git = "https://github.com/plietar/rust-mdns" }
 
 [target.'cfg(target_os="linux")'.dependencies]
 alsa = "0.1.3"
