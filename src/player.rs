@@ -1,8 +1,3 @@
-use coreaudio::audio_unit::{AudioUnit, IOType, SampleFormat, StreamFormat};
-use coreaudio::audio_unit::audio_format::linear_pcm_flags::IS_SIGNED_INTEGER;
-use coreaudio::audio_unit::render_callback::{self, data};
-
-use audio_queue;
 use futures::{Future, Stream, Async, Poll};
 
 use audio_file::AudioFile;
@@ -13,48 +8,9 @@ use types::*;
 use metadata;
 use session::Session;
 use util::SpotifyId;
+use audio_backend::{Sink, DefaultSink};
 
-struct AudioSink {
-    audio_unit: AudioUnit,
-}
-
-impl AudioSink {
-    pub fn new(consumer: audio_queue::AudioConsumer<i16>) -> AudioSink {
-        let mut audio_unit = AudioUnit::new(IOType::DefaultOutput).unwrap();
-        let format = StreamFormat {
-            sample_rate: 44100.,
-            sample_format: SampleFormat::I16,
-            flags: IS_SIGNED_INTEGER,
-            channels_per_frame: 2,
-        };
-        audio_unit.set_stream_format(format).unwrap();
-
-        let mut total = Box::new(0usize);
-        type Args = render_callback::Args<data::NonInterleaved<i16>>;
-        audio_unit.set_render_callback(move |args| {
-                let Args { num_frames, mut data, .. } = args;
-
-                for mut channel in data.channels_mut() {
-                    assert_eq!(channel.len(), num_frames * 2);
-                    consumer.read(&mut channel);
-                    *total += channel.len();
-                }
-
-                Ok(())
-            })
-            .unwrap();
-
-        AudioSink { audio_unit: audio_unit }
-    }
-
-    pub fn start(&mut self) {
-        self.audio_unit.start().unwrap();
-    }
-
-    pub fn pause(&mut self) {
-        self.audio_unit.stop().unwrap();
-    }
-}
+use audio_queue::{self, AudioProducer};
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum PlayerState {
@@ -71,15 +27,15 @@ pub struct Player {
     packet: Vec<i16>,
     offset: usize,
 
-    sink: AudioSink,
-    queue: audio_queue::AudioProducer<i16>,
-
-    total: usize,
+    sink: Box<Sink>,
+    queue: AudioProducer<i16>,
 }
 
 impl Player {
     pub fn new(session: Session) -> Player {
         let (producer, consumer) = audio_queue::make(32768 * 16);
+
+        let sink = DefaultSink::open(None, consumer).unwrap();
 
         Player {
             session: session,
@@ -89,10 +45,8 @@ impl Player {
             packet: Vec::new(),
             offset: 0,
 
-            sink: AudioSink::new(consumer),
+            sink: Box::new(sink),
             queue: producer,
-
-            total: 0,
         }
     }
 
@@ -118,13 +72,13 @@ impl Player {
             .flatten_stream()
             .sp_boxed();
 
+        if self.state == PlayerState::Loaded {
+            self.sink.pause().unwrap();
+        }
         self.queue.clear();
         self.packet = Vec::new();
         self.offset = 0;
         self.stream = Some(stream);
-        if self.state == PlayerState::Loaded {
-            self.sink.pause();
-        }
         self.state = PlayerState::Loading;
     }
 
@@ -133,7 +87,6 @@ impl Player {
             while self.offset < self.packet.len() {
                 let count = self.queue.try_write(&self.packet[self.offset..]);
                 self.offset += count;
-                self.total -= count;
 
                 if count == 0 {
                     return Ok(Async::Ready(()));
@@ -146,8 +99,6 @@ impl Player {
             let stream = self.stream.as_mut().unwrap();
             match try_ready!(stream.poll()) {
                 Some(packet) => {
-                    self.total += packet.len();
-
                     self.packet = packet;
                     self.offset = 0;
                 }
@@ -175,14 +126,14 @@ impl Future for Player {
                     try_ready!(self.fill_queue());
 
                     trace!("loaded, start playing");
-                    self.sink.start();
+                    self.sink.start()?;
                     self.state = PlayerState::Loaded;
                     return Ok(Async::NotReady);
                 }
                 Loaded => {
                     if self.queue.underrun() {
-                        trace!("************ Player underrun");
-                        self.sink.pause();
+                        trace!("player underrun");
+                        self.sink.pause().unwrap();
                         self.state = PlayerState::Loading;
                     } else {
                         try_ready!(self.fill_queue());

@@ -1,8 +1,9 @@
-pub mod authentication;
+mod audio_backend;
 mod audio_decrypt;
 mod audio_file;
 pub mod audio_key;
 mod audio_queue;
+pub mod authentication;
 mod broadcast;
 mod diffie_hellman;
 pub mod channel;

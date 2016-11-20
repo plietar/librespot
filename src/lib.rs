@@ -33,9 +33,6 @@ extern crate tokio_service;
 extern crate url;
 extern crate uuid;
 
-#[cfg(target_os="macos")]
-extern crate coreaudio;
-
 // include!/include_bytes! don't play nice with syntex, so place these here
 pub mod version;
 

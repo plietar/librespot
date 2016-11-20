@@ -52,6 +52,9 @@ hyper = { git = "https://github.com/hyperium/hyper", branch="tokio" }
 tokio-core = { git = "https://github.com/tokio-rs/tokio-core" }
 tokio-service = { git = "https://github.com/tokio-rs/tokio-service" }
 
+[target.'cfg(target_os="linux")'.dependencies]
+alsa = "0.1.3"
+
 [target.'cfg(target_os="macos")'.dependencies]
 coreaudio-rs = "0.6.0"
 
