@@ -1,9 +1,9 @@
 use anymap;
 use anymap::any::CloneAny;
-use std::sync::{Arc, Weak, Mutex, MutexGuard};
 use std::any::Any;
+use std::fmt::Debug;
+use std::sync::{Arc, Weak, Mutex, MutexGuard};
 use tokio::reactor::Handle;
-use types::SpError;
 use futures::Future;
 use uuid::Uuid;
 
@@ -60,7 +60,8 @@ impl Session {
     }
 
     pub fn spawn<F>(&self, task: F)
-        where F: Future<Error = SpError> + 'static
+        where F: Future + 'static,
+              F::Error: Debug,
     {
         let task = task.map(|_| ()).map_err(|err| panic!("{:?}", err));
         self.0.handle.spawn(task);

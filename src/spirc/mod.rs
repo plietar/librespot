@@ -59,10 +59,9 @@ impl SpircState {
 }
 
 impl SpircManager {
-    pub fn new(session: &Session, ident: String, name: String) -> SpircManager
-    {
+    pub fn new(session: &Session, name: String) -> SpircManager {
         SpircManager {
-            ident: ident,
+            ident: session.device_id(),
 
             session: session.clone(),
             connection_updates: session.connection().updates(),
@@ -266,12 +265,9 @@ impl Future for SpircManager {
 
             let poll_connection = self.connection_updates.poll()?;
             if let Async::Ready(Some(change)) = poll_connection {
-                match change {
-                    ConnectionChange::Connected(username) => {
-                        self.handle_connection(username);
-                        progress = true;
-                    }
-                }
+                let ConnectionChange::Connected(username) = change;
+                self.handle_connection(username);
+                progress = true;
             }
 
             let poll_subscription = self.subscription

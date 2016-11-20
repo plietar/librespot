@@ -16,19 +16,25 @@
 extern crate anymap;
 extern crate bounded_spsc_queue;
 extern crate byteorder;
-extern crate coreaudio;
 extern crate crypto;
-extern crate ogg;
+extern crate hyper;
 extern crate librespot_protocol as protocol;
 extern crate lewton;
-extern crate protobuf;
+extern crate mdns;
+extern crate ogg;
 extern crate num;
+extern crate protobuf;
 extern crate rand;
 extern crate rustc_serialize;
 extern crate serde;
 extern crate serde_json;
 extern crate shannon;
+extern crate tokio_service;
+extern crate url;
 extern crate uuid;
+
+#[cfg(target_os="macos")]
+extern crate coreaudio;
 
 // include!/include_bytes! don't play nice with syntex, so place these here
 pub mod version;

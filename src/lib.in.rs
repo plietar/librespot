@@ -1,4 +1,4 @@
-mod authentication;
+pub mod authentication;
 mod audio_decrypt;
 mod audio_file;
 pub mod audio_key;

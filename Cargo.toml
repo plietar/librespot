@@ -25,9 +25,7 @@ anymap = "0.12.0"
 argparse = "0.2.1"
 bounded-spsc-queue = "0.1.2"
 byteorder = "0.5.3"
-coreaudio-rs = "0.6.0"
 env_logger = "0.3.5"
-#json_macros = "0.3.0"
 lazy_static = "0.2.2"
 lewton = { version = "0.4.1", features = ["async_ogg"] }
 log = "0.3.6"
@@ -42,13 +40,20 @@ serde = "0.8.17"
 serde_derive = { version = "0.8.17", optional = true }
 serde_json = "0.8.3"
 uuid = { version = "0.3.1", features = ["v4"] }
+url = "1.2.3"
 
 json_macros = { git = "https://github.com/plietar/json_macros" }
+mdns = { git = "https://github.com/plietar/rust-mdns" }
 protobuf_macros = { git = "https://github.com/plietar/rust-protobuf-macros" }
 shannon = { git = "https://github.com/plietar/rust-shannon" }
 
 futures = { git = "https://github.com/alexcrichton/futures-rs" }
+hyper = { git = "https://github.com/hyperium/hyper", branch="tokio" }
 tokio-core = { git = "https://github.com/tokio-rs/tokio-core" }
+tokio-service = { git = "https://github.com/tokio-rs/tokio-service" }
+
+[target.'cfg(target_os="macos")'.dependencies]
+coreaudio-rs = "0.6.0"
 
 [build-dependencies]
 vergen = "0.1.1"

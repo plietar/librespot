@@ -168,10 +168,10 @@ fn deserialize_base64<D>(de: &mut D) -> Result<Vec<u8>, D::Error>
     v.from_base64().map_err(|e| serde::Error::custom(e.to_string()))
 }
 
-/*
 mod discovery;
-pub use self::discovery::discovery_login;
+pub use self::discovery::Discovery;
 
+/*
 #[cfg(feature = "facebook")]
 mod facebook;
 #[cfg(feature = "facebook")]
