@@ -1,10 +1,11 @@
-use protobuf::{self, Message};
+use byteorder::{BigEndian, ByteOrder};
 use futures::{self, Future, Stream, Sink, Async};
-use tokio;
-use tokio::io::{Io, Framed, EasyBuf};
-use tokio::net::TcpStream;
+use protobuf::{self, Message};
 use std::io;
 use std::net::ToSocketAddrs;
+use tokio::io::{Io, Framed, EasyBuf};
+use tokio::net::TcpStream;
+use tokio;
 
 use authentication::Credentials;
 use broadcast::{broadcast, BroadcastSender, BroadcastReceiver};
@@ -96,6 +97,8 @@ impl Connection {
     }
 
     pub fn send<'a>(&self, cmd: u8, data: Vec<u8>) -> SpFuture<'a, ()> {
+        trace!("sending cmd={:02x} len={}", cmd, data.len());
+
         match self.lock().state {
             State::NotConnected | State::Connecting => {
                 futures::failed(SpError::ConnectionClosed).sp_boxed()
@@ -108,19 +111,25 @@ impl Connection {
     }
 
     fn dispatch(&self, cmd: u8, data: EasyBuf) {
+        trace!("received cmd={:02x} len={}", cmd, data.len());
         match cmd {
             0xd | 0xe => self.session().audio_key().dispatch(cmd, data),
             0x9 | 0xa => self.session().channel().dispatch(cmd, data),
             0xb2...0xb6 => self.session().mercury().dispatch(cmd, data),
 
             0x04 => {
+                let timestamp = BigEndian::read_u32(data.as_ref());
                 self.session()
-                    .upgrade()
+                    .update_time(timestamp as u64);
+
+                self.session()
                     .spawn(self.send(0x49, data.as_ref().to_owned()));
             }
-            _ => {
-                warn!("Unknown command {:#x} {}", cmd, data.len());
+            0x1b => {
+                self.session()
+                    .set_country(String::from_utf8(data.as_ref().to_owned()).unwrap());
             }
+            _ => ()
         }
     }
 

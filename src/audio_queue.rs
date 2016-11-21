@@ -71,7 +71,6 @@ impl AudioConsumer<i16> {
     pub fn read(&self, data: &mut [i16]) {
         let count = self.queue.try_read(data);
         if count < data.len() {
-            trace!("Underrun");
             self.signaling.underrun.store(true, Ordering::Relaxed);
 
             self.signaling.unpark_writer();

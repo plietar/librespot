@@ -74,7 +74,8 @@ pub fn main() {
     }
 
     if let Some(credentials) = args.credentials() {
-        session.spawn(session.connection().connect(credentials));
+        let task = session.connection().connect(credentials);
+        session.spawn(task);
     }
 
     session.spawn(session.connection().updates().for_each(|update| {

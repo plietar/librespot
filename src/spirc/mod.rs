@@ -35,6 +35,8 @@ pub struct SpircState {
     status: PlayStatus,
     index: u32,
     tracks: Vec<SpotifyId>,
+
+    update_id: i64,
 }
 
 impl SpircState {
@@ -46,6 +48,7 @@ impl SpircState {
             status: PlayStatus::kPlayStatusStop,
             index: 0,
             tracks: Vec::new(),
+            update_id: 0,
         }
     }
 
@@ -87,6 +90,16 @@ impl SpircManager {
                 let data = pkt.payload.first().unwrap();
                 Ok(protobuf::parse_from_bytes::<Frame>(data)?)
             })
+            .map(|frame| {
+                debug!("{:?} {:?} {} {} {} {:?}",
+                       frame.get_typ(),
+                       frame.get_device_state().get_name(),
+                       frame.get_ident(),
+                       frame.get_seq_nr(),
+                       frame.get_state_update_id(),
+                       frame.get_recipient());
+                frame
+            })
             .filter(move |frame| {
                 let recipients = frame.get_recipient();
 
@@ -114,20 +127,13 @@ impl SpircManager {
     }
 
     fn process_frame(&mut self, frame: Frame) {
-        if frame.get_recipient().len() > 0 {
-            debug!("{:?} {:?} {} {} {}",
-                   frame.get_typ(),
-                   frame.get_device_state().get_name(),
-                   frame.get_ident(),
-                   frame.get_seq_nr(),
-                   frame.get_state_update_id());
+        if frame.get_state_update_id() > self.state.update_id {
+            self.state.update_id = frame.get_state_update_id();
         }
 
-        let sender = frame.get_ident();
-
+        let sender = frame.get_ident().to_owned();
         match frame.get_typ() {
-            MessageType::kMessageTypeHello
-                => self.notify(String::from(sender)),
+            MessageType::kMessageTypeHello => self.notify(sender),
 
             MessageType::kMessageTypeVolume => {
                 self.state.volume = frame.get_volume() as u16;
@@ -135,13 +141,17 @@ impl SpircManager {
             }
 
             MessageType::kMessageTypeLoad => {
+                self.state.update_id = self.session.time() as i64;
+
                 self.state.is_active = true;
                 self.state.load_tracks(frame.get_state());
                 self.state.status = PlayStatus::kPlayStatusPlay;
 
                 let track_index = self.state.index as usize;
-                let track_id = self.state.tracks[track_index];
-                self.player.load(track_id);
+                if track_index < self.state.tracks.len() {
+                    let track_id = self.state.tracks[track_index];
+                    self.player.load(track_id);
+                }
 
                 self.notify(None);
             }
@@ -149,14 +159,6 @@ impl SpircManager {
             _ => (),
         }
     }
-
-    /*
-    fn start_playing(&mut self) {
-        let index = self.state.index;
-        let track_id = self.state.tracks[index];
-
-    }
-    */
 
     fn next_seq(&mut self) -> u32 {
         self.seq_nr += 1;
@@ -178,8 +180,11 @@ impl SpircManager {
     fn notify<T>(&mut self, recipient: T)
         where T: Into<Option<String>>
     {
+        let state = self.player_state();
+        let update_id = self.state.update_id;
         self.command(MessageType::kMessageTypeNotify)
             .recipient(recipient)
+            .state(state, update_id)
             .send();
     }
 
@@ -187,6 +192,7 @@ impl SpircManager {
         protobuf_init!(State::new(), {
             status: self.state.status,
             position_ms: 0,
+            position_measured_at: 0,
 
             playing_track_index: self.state.index,
             track: self.state.tracks.iter().map(|track| {

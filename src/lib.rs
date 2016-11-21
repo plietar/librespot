@@ -36,6 +36,7 @@ extern crate uuid;
 extern crate mdns;
 
 mod audio_backend;
+mod audio_chunk;
 mod audio_decrypt;
 pub mod audio_key;
 mod audio_file;

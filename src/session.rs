@@ -1,10 +1,11 @@
-use anymap;
 use anymap::any::CloneAny;
+use anymap;
+use futures::Future;
 use std::any::Any;
 use std::fmt::Debug;
 use std::sync::{Arc, Weak, Mutex, MutexGuard};
+use std::time::Instant;
 use tokio::reactor::Handle;
-use futures::Future;
 use uuid::Uuid;
 
 use connection::Connection;
@@ -21,6 +22,8 @@ pub struct SessionInner {
     components: Components,
     handle: Handle,
     device_id: String,
+    country: Mutex<Option<String>>,
+    time: Mutex<(u64, Instant)>,
 }
 
 impl From<Session> for SessionWeak {
@@ -42,6 +45,8 @@ impl Session {
             components: Components::new(),
             handle: handle.clone(),
             device_id: device_id,
+            country: Mutex::new(None),
+            time: Mutex::new((0, Instant::now())),
         }));
 
         session.add(Connection::new(session.weak()));
@@ -83,25 +88,35 @@ impl Session {
     pub fn device_id(&self) -> String {
         self.0.device_id.clone()
     }
+
+    pub fn country(&self) -> String {
+        self.0.country.lock().unwrap().as_ref()
+              .expect("No country set yet").clone()
+    }
+
+    pub fn set_country(&self, country: String) {
+        *self.0.country.lock().unwrap() = Some(country);
+    }
+
+    pub fn time(&self) -> u64 {
+        let (timestamp, instant) = *self.0.time.lock().unwrap();
+        let elapsed = instant.elapsed();
+
+        let seconds = timestamp + elapsed.as_secs();
+        let millis = elapsed.subsec_nanos() / 1_000_000;
+
+        seconds * 1000 + millis as u64
+    }
+
+    pub fn update_time(&self, timestamp: u64) {
+        *self.0.time.lock().unwrap() = (timestamp, Instant::now());
+    }
 }
 
 impl SessionWeak {
     pub fn upgrade(&self) -> Session {
         Session(self.0.upgrade().expect("Session died"))
     }
-
-    pub fn handle(&self) -> Handle {
-        self.upgrade().handle()
-    }
-
-    pub fn get<T: Any + Clone>(&self) -> T {
-        self.upgrade().get()
-    }
-
-    pub fn audio_key(&self) -> AudioKeyManager { self.get::<AudioKeyManager>() }
-    pub fn connection(&self) -> Connection { self.get::<Connection>() }
-    pub fn channel(&self) -> ChannelManager { self.get::<ChannelManager>() }
-    pub fn mercury(&self) -> MercuryManager { self.get::<MercuryManager>() }
 }
 
 pub struct Components(Mutex<anymap::Map<CloneAny>>);
@@ -181,7 +196,7 @@ impl<T> Component<T> {
         self.inner.lock().expect("Mutex poisoned")
     }
 
-    pub fn session(&self) -> &SessionWeak {
-        &self.session
+    pub fn session(&self) -> Session {
+        self.session.upgrade()
     }
 }

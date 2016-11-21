@@ -10,6 +10,7 @@ pub struct CommandSender<'a> {
     cmd: MessageType,
     recipient: Option<String>,
     state: Option<State>,
+    state_update_id: i64,
 }
 
 impl<'a> CommandSender<'a> {
@@ -19,6 +20,7 @@ impl<'a> CommandSender<'a> {
             cmd: cmd,
             recipient: None,
             state: None,
+            state_update_id: 0,
         }
     }
 
@@ -29,8 +31,9 @@ impl<'a> CommandSender<'a> {
         self
     }
 
-    pub fn state(mut self, s: State) -> CommandSender<'a> {
+    pub fn state(mut self, s: State, update_id: i64) -> CommandSender<'a> {
         self.state = Some(s);
+        self.state_update_id = update_id;
         self
     }
 
@@ -48,7 +51,7 @@ impl<'a> CommandSender<'a> {
             typ: self.cmd,
             recipient: RepeatedField::from_iter(self.recipient),
             device_state: manager.device_state(),
-            state_update_id: 0,
+            state_update_id: self.state_update_id,
             state: state,
         });
 
