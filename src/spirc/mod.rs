@@ -131,6 +131,18 @@ impl SpircManager {
                 self.notify(None);
             }
 
+            MessageType::kMessageTypePlay => {
+                self.state.set_status(PlayStatus::kPlayStatusPlay);
+                self.player.play();
+                self.notify(None);
+            }
+
+            MessageType::kMessageTypePause => {
+                self.state.set_status(PlayStatus::kPlayStatusPause);
+                self.player.pause();
+                self.notify(None);
+            }
+
             MessageType::kMessageTypeLoad => {
                 if !self.is_active {
                     self.is_active = true;
@@ -143,12 +155,15 @@ impl SpircManager {
 
                 let index = self.state.get_playing_track_index();
                 let track = self.state.get_track().get(index as usize).cloned();
+
                 if let Some(track) = track {
                     self.player.load(SpotifyId::from_raw(track.get_gid()));
-
-                    self.state.set_status(PlayStatus::kPlayStatusPlay);
                     self.state.set_position_ms(0);
                     self.state.set_position_measured_at(self.session.time());
+
+                    if self.state.get_status() == PlayStatus::kPlayStatusPlay {
+                        self.player.play();
+                    }
                 }
 
                 self.notify(None);
@@ -283,6 +298,7 @@ impl Future for SpircManager {
                     let track = self.state.get_track().get(index as usize).cloned();
                     if let Some(track) = track {
                         self.player.load(SpotifyId::from_raw(track.get_gid()));
+                        self.player.play();
                         progress = true;
                     } else {
                         self.state.set_status(PlayStatus::kPlayStatusStop);

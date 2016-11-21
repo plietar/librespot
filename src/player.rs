@@ -13,8 +13,9 @@ use util::{SpotifyId, Subfile};
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub enum PlayerState {
     Stopped,
-    Loading,
+    Loading(bool),
     Loaded,
+    Playing,
 }
 
 pub type AudioStream = ogg_async::OggStream<Subfile<AudioDecrypt<AudioFile>>>;
@@ -104,22 +105,57 @@ impl Player {
         self.offset = 0;
         self.stream = None;
         self.future = future;
-        self.state = PlayerState::Loading;
+        self.state = PlayerState::Loading(false);
     }
 
     pub fn stop(&mut self) {
+        if self.state == PlayerState::Playing {
+            self.sink.pause().unwrap();
+        }
+
         self.queue.clear();
         self.packet = Vec::new();
         self.offset = 0;
         self.stream = None;
         self.future = futures::empty().sp_boxed();
         self.state = PlayerState::Stopped;
-        if self.state == PlayerState::Loaded {
-            self.sink.pause().unwrap();
+    }
+
+    pub fn pause(&mut self) {
+        match self.state {
+            PlayerState::Playing => {
+                self.sink.pause().unwrap();
+                self.state = PlayerState::Loaded;
+            }
+            PlayerState::Loaded => (),
+            PlayerState::Loading(ref mut play) => {
+                *play = false;
+            }
+            s => {
+                warn!("called pause from invalid state {:?}", s);
+            }
+        }
+    }
+
+    pub fn play(&mut self) {
+        match self.state {
+            PlayerState::Playing => (),
+            PlayerState::Loaded => {
+                self.sink.start().unwrap();
+                self.state = PlayerState::Playing;
+            },
+            PlayerState::Loading(ref mut play) => {
+                *play = true;
+            }
+            s => {
+                warn!("called play from invalid state {:?}", s);
+            }
         }
     }
 
     fn stream(&mut self) -> Poll<&mut AudioStream, SpError> {
+        assert_ne!(self.state, PlayerState::Stopped);
+
         if self.stream.is_none() {
             let stream = try_ready!(self.future.poll());
             self.stream = Some(stream);
@@ -170,40 +206,46 @@ impl Stream for Player {
                self.queue.size(), self.queue.capacity());
 
         use self::PlayerState::*;
-        use self::PlayerEvent::*;
         loop {
             match self.state {
                 Stopped => return Ok(Async::NotReady),
-                Loading => {
+                Loading(play) => {
                     if self.queue.size() > self.queue.capacity() / 2 {
-                        debug!("loaded, start playing");
-                        self.sink.start()?;
-                        self.state = Loaded;
+                        if play {
+                            debug!("loaded, start playing");
+                            self.sink.start()?;
+                            self.state = Playing;
+                        } else {
+                            debug!("loaded, stay paused");
+                            self.state = Loaded;
+                        }
                     }
                 }
-
-                Loaded => {
+                Loaded => (),
+                Playing => {
                     if self.queue.underrun() {
                         warn!("player underrun");
                         self.sink.pause().unwrap();
-                        self.state = Loading;
+                        self.state = Loading(true);
                     }
                 }
             }
 
             let event = try_ready!(self.fill_queue());
             match (event, self.state) {
-                (Some(TrackEnd), _) => {
-                    self.sink.pause().unwrap();
-                    self.state = Stopped;
-                    return Ok(Async::Ready(Some(TrackEnd)));
+                (Some(PlayerEvent::TrackEnd), _) => {
+                    self.stop();
+                    return Ok(Async::Ready(Some(PlayerEvent::TrackEnd)));
                 }
 
-                (None, Loaded) => {
+                (None, Playing) => {
                     let absgp = try_ready!(self.stream()).last_absgp();
                     let position = (absgp * 1000 / 44_100) as u32;
-                    return Ok(Async::Ready(Some(Playing(position))));
+                    return Ok(Async::Ready(Some(PlayerEvent::Playing(position))));
                 },
+
+                (None, Loaded) => return Ok(Async::Ready(None)),
+
                 _ => (),
             }
         }
