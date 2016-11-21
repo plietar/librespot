@@ -15,6 +15,14 @@ use self::command_sender::CommandSender;
 
 pub struct SpircManager {
     ident: String,
+    name: String,
+    volume: u32,
+
+    is_active: bool,
+    became_active_at: i64,
+
+    state: State,
+    state_update_id: i64,
 
     session: Session,
     connection_updates: BroadcastReceiver<ConnectionChange>,
@@ -23,60 +31,21 @@ pub struct SpircManager {
     subscription: Option<SpStream<'static, Frame>>,
     sender: Option<SpSink<'static, Frame>>,
 
-    state: SpircState,
     player: Player,
-}
-
-pub struct SpircState {
-    name: String,
-    volume: u16,
-
-    is_active: bool,
-    became_active_at: i64,
-    status: PlayStatus,
-
-    index: u32,
-    tracks: Vec<SpotifyId>,
-
-    update_id: i64,
-
-    position_ms: u32,
-    position_measured_at: u64,
-}
-
-impl SpircState {
-    pub fn new(name: String) -> SpircState {
-        SpircState {
-            name: name,
-            volume: 0xFFFF,
-
-            is_active: false,
-            became_active_at: 0,
-            status: PlayStatus::kPlayStatusStop,
-
-            index: 0,
-            tracks: Vec::new(),
-
-            update_id: 0,
-
-            position_ms: 0,
-            position_measured_at: 0,
-        }
-    }
-
-    pub fn load_tracks(&mut self, state: &State) {
-        self.index = state.get_playing_track_index();
-        self.tracks = state.get_track().iter()
-                           .filter(|track| track.has_gid())
-                           .map(|track| SpotifyId::from_raw(track.get_gid()))
-                           .collect();
-    }
 }
 
 impl SpircManager {
     pub fn new(session: &Session, name: String) -> SpircManager {
         SpircManager {
             ident: session.device_id(),
+            name: name,
+            volume: 0xFFFF,
+
+            is_active: false,
+            became_active_at: 0,
+
+            state: State::new(),
+            state_update_id: 0,
 
             session: session.clone(),
             connection_updates: session.connection().updates(),
@@ -85,7 +54,6 @@ impl SpircManager {
             subscription: None,
             sender: None,
 
-            state: SpircState::new(name),
             player: Player::new(session.clone()),
         }
     }
@@ -139,16 +107,16 @@ impl SpircManager {
     }
 
     fn process_frame(&mut self, frame: Frame) {
-        if frame.get_state_update_id() > self.state.update_id {
-            self.state.update_id = frame.get_state_update_id();
+        if frame.get_state_update_id() > self.state_update_id {
+            self.state = frame.get_state().clone();
+            self.state_update_id = frame.get_state_update_id();
         }
 
         if frame.get_device_state().get_is_active() &&
-            self.state.is_active &&
-            frame.get_device_state().get_became_active_at() > self.state.became_active_at
+            self.is_active &&
+            frame.get_device_state().get_became_active_at() > self.became_active_at
         {
-            self.state.is_active = false;
-            self.state.status = PlayStatus::kPlayStatusStop;
+            self.is_active = false;
             self.player.stop();
 
             self.notify(None);
@@ -159,34 +127,36 @@ impl SpircManager {
             MessageType::kMessageTypeHello => self.notify(sender),
 
             MessageType::kMessageTypeVolume => {
-                self.state.volume = frame.get_volume() as u16;
+                self.volume = frame.get_volume();
                 self.notify(None);
             }
 
             MessageType::kMessageTypeLoad => {
-                self.state.update_id = self.session.time() as i64;
-
-                if !self.state.is_active {
-                    self.state.is_active = true;
-                    self.state.became_active_at = self.session.time() as i64;
+                if !self.is_active {
+                    self.is_active = true;
+                    self.became_active_at = self.session.time() as i64;
                 }
 
-                self.state.load_tracks(frame.get_state());
+                self.state = frame.get_state().clone();
+                self.state_update_id = self.session.time() as i64;
+                self.state.set_playing_from_fallback(true);
 
-                let track_index = self.state.index as usize;
-                if track_index < self.state.tracks.len() {
-                    let track_id = self.state.tracks[track_index];
-                    self.player.load(track_id);
+                let index = self.state.get_playing_track_index();
+                let track = self.state.get_track().get(index as usize).cloned();
+                if let Some(track) = track {
+                    self.player.load(SpotifyId::from_raw(track.get_gid()));
 
-                    self.state.status = PlayStatus::kPlayStatusPlay;
-                    self.state.position_ms = 0;
-                    self.state.position_measured_at = self.session.time();
+                    self.state.set_status(PlayStatus::kPlayStatusPlay);
+                    self.state.set_position_ms(0);
+                    self.state.set_position_measured_at(self.session.time());
                 }
 
                 self.notify(None);
             }
 
-            _ => (),
+            _ => {
+                self.notify(None);
+            }
         }
     }
 
@@ -210,39 +180,22 @@ impl SpircManager {
     fn notify<T>(&mut self, recipient: T)
         where T: Into<Option<String>>
     {
-        let state = self.player_state();
-        let update_id = self.state.update_id;
+        let state = self.state.clone();
+        let update_id = self.state_update_id;
         self.command(MessageType::kMessageTypeNotify)
             .recipient(recipient)
             .state(state, update_id)
             .send();
     }
 
-    pub fn player_state(&self) -> State {
-        protobuf_init!(State::new(), {
-            status: self.state.status,
-            position_ms: self.state.position_ms,
-            position_measured_at: self.state.position_measured_at,
-
-            playing_track_index: self.state.index,
-            track: self.state.tracks.iter().map(|track| {
-                protobuf_init!(protocol::spirc::TrackRef::new(), {
-                    gid: track.to_raw().to_vec()
-                })
-            }).collect(),
-
-            playing_from_fallback: true,
-        })
-    }
-
     pub fn device_state(&self) -> DeviceState {
         protobuf_init!(DeviceState::new(), {
             sw_version: "librespot-v0.2",
-            is_active: self.state.is_active,
-            became_active_at: self.state.became_active_at,
+            is_active: self.is_active,
+            became_active_at: self.became_active_at,
             can_play: true,
-            volume: self.state.volume as u32,
-            name: self.state.name.clone(),
+            volume: self.volume,
+            name: self.name.clone(),
             error_code: 0,
             became_active_at: 0,
             capabilities => [
@@ -324,20 +277,27 @@ impl Future for SpircManager {
 
             match self.player.poll()? {
                 Async::Ready(Some(PlayerEvent::TrackEnd)) => {
-                    self.state.index = (self.state.index + 1) % self.state.tracks.len() as u32;
-                    let track_id = self.state.tracks[self.state.index as usize];
-                    self.player.load(track_id);
+                    let index = self.state.get_playing_track_index() % self.state.get_track().len() as u32;
+                    self.state.set_playing_track_index(index);
 
-                    self.state.update_id = self.session.time() as i64;
-                    self.state.position_ms = 0;
-                    self.state.position_measured_at = self.session.time();
+                    let track = self.state.get_track().get(index as usize).cloned();
+                    if let Some(track) = track {
+                        self.player.load(SpotifyId::from_raw(track.get_gid()));
+                        progress = true;
+                    } else {
+                        self.state.set_status(PlayStatus::kPlayStatusStop);
+                        self.state.set_playing_track_index(0);
+                    }
+
+                    self.state_update_id = self.session.time() as i64;
+                    self.state.set_position_ms(0);
+                    self.state.set_position_measured_at(self.session.time());
                     self.notify(None);
-
-                    progress = true;
                 }
+
                 Async::Ready(Some(PlayerEvent::Playing(position_ms))) => {
-                    self.state.position_ms = position_ms;
-                    self.state.position_measured_at = self.session.time();
+                    self.state.set_position_ms(position_ms);
+                    self.state.set_position_measured_at(self.session.time());
                 }
                 _ => (),
             }

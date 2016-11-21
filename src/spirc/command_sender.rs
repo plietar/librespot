@@ -9,7 +9,7 @@ pub struct CommandSender<'a> {
     manager: &'a mut SpircManager,
     cmd: MessageType,
     recipient: Option<String>,
-    state: Option<State>,
+    state: State,
     state_update_id: i64,
 }
 
@@ -19,7 +19,7 @@ impl<'a> CommandSender<'a> {
             manager: manager,
             cmd: cmd,
             recipient: None,
-            state: None,
+            state: State::new(),
             state_update_id: 0,
         }
     }
@@ -32,16 +32,13 @@ impl<'a> CommandSender<'a> {
     }
 
     pub fn state(mut self, s: State, update_id: i64) -> CommandSender<'a> {
-        self.state = Some(s);
+        self.state = s;
         self.state_update_id = update_id;
         self
     }
 
     pub fn send(self) {
         let manager = self.manager;
-        let state = self.state.unwrap_or_else(|| {
-            manager.player_state()
-        });
 
         let frame = protobuf_init!(protocol::spirc::Frame::new(), {
             version: 1,
@@ -52,7 +49,7 @@ impl<'a> CommandSender<'a> {
             recipient: RepeatedField::from_iter(self.recipient),
             device_state: manager.device_state(),
             state_update_id: self.state_update_id,
-            state: state,
+            state: self.state,
         });
 
         manager.send_frame(frame);
