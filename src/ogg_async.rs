@@ -68,3 +68,13 @@ impl<S> Stream for OggStream<S>
         Ok(Async::Ready(packet))
     }
 }
+
+impl<S> ::std::ops::Deref for OggStream<S>
+    where S: Read + Seek
+{
+    type Target = OggStreamReader<ogg::BufReader<S>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}

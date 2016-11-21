@@ -10,18 +10,20 @@ use session::Session;
 use types::*;
 use util::{SpotifyId, Subfile};
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub enum PlayerState {
     Stopped,
     Loading,
     Loaded,
 }
 
+pub type AudioStream = ogg_async::OggStream<Subfile<AudioDecrypt<AudioFile>>>;
 pub struct Player {
     session: Session,
     state: PlayerState,
 
-    stream: Option<SpStream<'static, Vec<i16>>>,
+    stream: Option<AudioStream>,
+    future: SpFuture<'static, AudioStream>,
     packet: Vec<i16>,
     offset: usize,
 
@@ -40,6 +42,7 @@ impl Player {
             state: PlayerState::Stopped,
 
             stream: None,
+            future: futures::empty().sp_boxed(),
             packet: Vec::new(),
             offset: 0,
 
@@ -73,7 +76,8 @@ impl Player {
     pub fn load(&mut self, track_id: SpotifyId) {
         let session = self.session.clone();
         let session2 = self.session.clone();
-        let stream = self.find_available_alternative(track_id)
+
+        let future = self.find_available_alternative(track_id)
             .map(|track| track.unwrap().find_file(metadata::FileFormat::OGG_VORBIS_320).unwrap())
             .and_then(move |file_id| {
                 session.audio_key()
@@ -87,10 +91,10 @@ impl Player {
 
                 ogg_async::open(file)
                     .map_err(SpError::from)
-                    .map(|s| s.map_err(SpError::from))
             })
-            .flatten_stream()
             .sp_boxed();
+
+        debug!("loading track {:?}", track_id);
 
         if self.state == PlayerState::Loaded {
             self.sink.pause().unwrap();
@@ -98,67 +102,109 @@ impl Player {
         self.queue.clear();
         self.packet = Vec::new();
         self.offset = 0;
-        self.stream = Some(stream);
+        self.stream = None;
+        self.future = future;
         self.state = PlayerState::Loading;
     }
 
-    fn fill_queue(&mut self) -> Poll<(), SpError> {
+    pub fn stop(&mut self) {
+        self.queue.clear();
+        self.packet = Vec::new();
+        self.offset = 0;
+        self.stream = None;
+        self.future = futures::empty().sp_boxed();
+        self.state = PlayerState::Stopped;
+        if self.state == PlayerState::Loaded {
+            self.sink.pause().unwrap();
+        }
+    }
+
+    fn stream(&mut self) -> Poll<&mut AudioStream, SpError> {
+        if self.stream.is_none() {
+            let stream = try_ready!(self.future.poll());
+            self.stream = Some(stream);
+        }
+
+        Ok(Async::Ready(self.stream.as_mut().unwrap()))
+    }
+
+    fn fill_queue(&mut self) -> Poll<Option<PlayerEvent>, SpError> {
         loop {
             while self.offset < self.packet.len() {
                 let count = self.queue.try_write(&self.packet[self.offset..]);
                 self.offset += count;
 
                 if count == 0 {
-                    return Ok(Async::Ready(()));
+                    return Ok(Async::Ready(None));
                 }
             }
 
             self.packet = Vec::new();
             self.offset = 0;
 
-            let stream = self.stream.as_mut().unwrap();
-            match try_ready!(stream.poll()) {
+            let poll = try_ready!(try_ready!(self.stream()).poll());
+            match poll {
                 Some(packet) => {
                     self.packet = packet;
                     self.offset = 0;
                 }
-                None => panic!("Song over")
+                None => {
+                    return Ok(Async::Ready(Some(PlayerEvent::TrackEnd)));
+                }
             }
         }
     }
 }
 
-impl Future for Player {
-    type Item = ();
+pub enum PlayerEvent {
+    TrackEnd,
+    Playing(u32),
+}
+
+impl Stream for Player {
+    type Item = PlayerEvent;
     type Error = SpError;
 
-    fn poll(&mut self) -> Poll<(), SpError> {
+    fn poll(&mut self) -> Poll<Option<PlayerEvent>, SpError> {
         trace!("polling player state={:?} queue={}/{}", self.state,
                self.queue.size(), self.queue.capacity());
 
         use self::PlayerState::*;
+        use self::PlayerEvent::*;
         loop {
             match self.state {
                 Stopped => return Ok(Async::NotReady),
                 Loading => {
-                    try_ready!(self.fill_queue());
-
-                    debug!("loaded, start playing");
-                    self.sink.start()?;
-                    self.state = PlayerState::Loaded;
-                    return Ok(Async::NotReady);
+                    if self.queue.size() > self.queue.capacity() / 2 {
+                        debug!("loaded, start playing");
+                        self.sink.start()?;
+                        self.state = Loaded;
+                    }
                 }
+
                 Loaded => {
                     if self.queue.underrun() {
                         warn!("player underrun");
                         self.sink.pause().unwrap();
-                        self.state = PlayerState::Loading;
-                    } else {
-                        try_ready!(self.fill_queue());
-
-                        return Ok(Async::NotReady);
+                        self.state = Loading;
                     }
                 }
+            }
+
+            let event = try_ready!(self.fill_queue());
+            match (event, self.state) {
+                (Some(TrackEnd), _) => {
+                    self.sink.pause().unwrap();
+                    self.state = Stopped;
+                    return Ok(Async::Ready(Some(TrackEnd)));
+                }
+
+                (None, Loaded) => {
+                    let absgp = try_ready!(self.stream()).last_absgp();
+                    let position = (absgp * 1000 / 44_100) as u32;
+                    return Ok(Async::Ready(Some(Playing(position))));
+                },
+                _ => (),
             }
         }
     }
