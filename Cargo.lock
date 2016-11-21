@@ -305,7 +305,6 @@ name = "librespot-protocol"
 version = "0.1.0"
 dependencies = [
  "protobuf 1.0.24 (registry+https://github.com/rust-lang/crates.io-index)",
- "protobuf_build 0.1.1 (git+https://github.com/plietar/rust-protobuf-build.git)",
 ]
 
 [[package]]
@@ -508,17 +507,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "protobuf"
 version = "1.0.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-
-[[package]]
-name = "protobuf_build"
-version = "0.1.1"
-source = "git+https://github.com/plietar/rust-protobuf-build.git#24d5a01ca035d0c00a3fae7ce5e26b6d2e68ddcb"
-dependencies = [
- "gcc 0.3.38 (registry+https://github.com/rust-lang/crates.io-index)",
- "libc 0.2.17 (registry+https://github.com/rust-lang/crates.io-index)",
- "pkg-config 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)",
- "protobuf 1.0.24 (registry+https://github.com/rust-lang/crates.io-index)",
-]
 
 [[package]]
 name = "protobuf_macros"
@@ -996,7 +984,6 @@ dependencies = [
 "checksum ogg 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "780fc298e7c28a3d5b49638da41b99136d535564ca7060574dab61a845e4947d"
 "checksum pkg-config 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)" = "8cee804ecc7eaf201a4a207241472cc870e825206f6c031e3ee2a72fa425f2fa"
 "checksum protobuf 1.0.24 (registry+https://github.com/rust-lang/crates.io-index)" = "6ec4c2fe04370298218a09ab53a534febf54c160c5554e4de987b6d73c916d5d"
-"checksum protobuf_build 0.1.1 (git+https://github.com/plietar/rust-protobuf-build.git)" = "<none>"
 "checksum protobuf_macros 0.6.0 (git+https://github.com/plietar/rust-protobuf-macros)" = "<none>"
 "checksum quasi 0.26.0 (registry+https://github.com/rust-lang/crates.io-index)" = "8ab7992920bf5bc5f1ed6fdc49090bf665cd00b3aa4b78c16ac3465286257db1"
 "checksum quasi_codegen 0.26.0 (registry+https://github.com/rust-lang/crates.io-index)" = "d52e5e2c92ffdad67a9b86ad27ad999bf1a652723f1d4cc93b7cf6c272b5f8e0"
