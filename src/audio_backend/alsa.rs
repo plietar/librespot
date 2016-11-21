@@ -44,20 +44,20 @@ impl Sink for AlsaSink {
         thread::spawn(move || {
             let io = pcm.io_i16().unwrap();
             let mut buffer = [0i16; 4096];
+
             loop {
                 let mut guard = running_.0.lock().unwrap();
                 if !*guard {
-                    //pcm.pause(true).unwrap();
+                    pcm.drain().unwrap();
                     while !*guard {
                         guard = running_.1.wait(guard).unwrap();
                     }
-                    //pcm.pause(false).unwrap();
+                    pcm.prepare().unwrap();
                 }
 
                 queue.read(&mut buffer);
                 io.writei(&buffer)
                   .unwrap_or_else(|err| {
-                      println!("{:?}", err);
                       pcm.recover(err.code(), false).unwrap();
                       io.writei(&buffer).unwrap()
                   });

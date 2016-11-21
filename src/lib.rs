@@ -35,11 +35,27 @@ extern crate uuid;
 #[cfg(not(target_os="windows"))]
 extern crate mdns;
 
-// include!/include_bytes! don't play nice with syntex, so place these here
+mod audio_backend;
+mod audio_decrypt;
+pub mod audio_key;
+mod audio_file;
+mod audio_queue;
+mod broadcast;
+pub mod channel;
+mod diffie_hellman;
+mod metadata;
+mod ogg_async;
+mod player;
+mod session;
+mod types;
+mod util;
 pub mod version;
 
-#[cfg(feature = "with-syntex")]
-include!(concat!(env!("OUT_DIR"), "/lib.rs"));
+// Some modules need to run through syntex on rust stable
+// They are included from lib.in.rs
+#[cfg(feature = "with-syntex")] include!(concat!(env!("OUT_DIR"), "/lib.rs"));
+#[cfg(not(feature = "with-syntex"))] include!("lib.in.rs");
 
-#[cfg(not(feature = "with-syntex"))]
-include!("lib.in.rs");
+pub use session::Session;
+pub use authentication::Credentials;
+pub use spirc::SpircManager;

@@ -1,22 +1,5 @@
-mod audio_backend;
-mod audio_decrypt;
-mod audio_file;
-pub mod audio_key;
-mod audio_queue;
+// These modules use syntax extension
 pub mod authentication;
-mod broadcast;
-mod diffie_hellman;
-pub mod channel;
 pub mod connection;
 pub mod mercury;
-mod metadata;
-mod ogg_async;
-mod player;
-mod session;
 mod spirc;
-mod types;
-mod util;
-
-pub use session::Session;
-pub use authentication::Credentials;
-pub use spirc::SpircManager;

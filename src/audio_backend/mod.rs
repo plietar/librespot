@@ -12,6 +12,7 @@ mod alsa;
 #[cfg(target_os="linux")]
 pub use self::alsa::AlsaSink;
 
+#[cfg(target_os="windows")]
 mod wasapi;
 #[cfg(target_os="windows")]
 pub use self::wasapi::WasapiSink;

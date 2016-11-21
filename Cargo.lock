@@ -12,6 +12,7 @@ dependencies = [
  "futures 0.1.3 (git+https://github.com/alexcrichton/futures-rs)",
  "hyper 0.10.0-a.0 (git+https://github.com/hyperium/hyper?branch=tokio)",
  "json_macros 0.3.1 (git+https://github.com/plietar/json_macros)",
+ "kernel32-sys 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "lewton 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "librespot-protocol 0.1.0",
@@ -19,6 +20,7 @@ dependencies = [
  "mdns 0.2.0 (git+https://github.com/plietar/rust-mdns)",
  "num 0.1.36 (registry+https://github.com/rust-lang/crates.io-index)",
  "ogg 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ole32-sys 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "protobuf 1.0.24 (registry+https://github.com/rust-lang/crates.io-index)",
  "protobuf_macros 0.6.0 (git+https://github.com/plietar/rust-protobuf-macros)",
  "rand 0.3.14 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -35,6 +37,7 @@ dependencies = [
  "url 1.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "uuid 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "vergen 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "winapi 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -496,6 +499,15 @@ version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "byteorder 0.5.3 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "ole32-sys"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "winapi 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "winapi-build 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -982,6 +994,7 @@ dependencies = [
 "checksum num-traits 0.1.36 (registry+https://github.com/rust-lang/crates.io-index)" = "a16a42856a256b39c6d3484f097f6713e14feacd9bfb02290917904fae46c81c"
 "checksum num_cpus 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "8890e6084723d57d0df8d2720b0d60c6ee67d6c93e7169630e4371e88765dcad"
 "checksum ogg 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "780fc298e7c28a3d5b49638da41b99136d535564ca7060574dab61a845e4947d"
+"checksum ole32-sys 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "5d2c49021782e5233cd243168edfa8037574afed4eba4bbaf538b3d8d1789d8c"
 "checksum pkg-config 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)" = "8cee804ecc7eaf201a4a207241472cc870e825206f6c031e3ee2a72fa425f2fa"
 "checksum protobuf 1.0.24 (registry+https://github.com/rust-lang/crates.io-index)" = "6ec4c2fe04370298218a09ab53a534febf54c160c5554e4de987b6d73c916d5d"
 "checksum protobuf_macros 0.6.0 (git+https://github.com/plietar/rust-protobuf-macros)" = "<none>"
