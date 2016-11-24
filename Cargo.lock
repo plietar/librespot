@@ -5,9 +5,9 @@ dependencies = [
  "alsa 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "anymap 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "argparse 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "bounded-spsc-queue 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "bounded-spsc-queue 0.1.2 (git+https://github.com/plietar/bounded-spsc-queue)",
  "byteorder 0.5.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "coreaudio-rs 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "coreaudio-rs 0.6.0 (git+https://github.com/plietar/coreaudio-rs)",
  "env_logger 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures 0.1.3 (git+https://github.com/alexcrichton/futures-rs)",
  "hyper 0.10.0-a.0 (git+https://github.com/hyperium/hyper?branch=tokio)",
@@ -103,7 +103,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "bounded-spsc-queue"
 version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+source = "git+https://github.com/plietar/bounded-spsc-queue#54d23429d31376f484b589d3fac6ae960c29482e"
 
 [[package]]
 name = "byteorder"
@@ -135,7 +135,7 @@ dependencies = [
 [[package]]
 name = "coreaudio-rs"
 version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+source = "git+https://github.com/plietar/coreaudio-rs#24894061e35c0d979aa4bffd16e8897f7a914b84"
 dependencies = [
  "bitflags 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "coreaudio-sys 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -948,12 +948,12 @@ dependencies = [
 "checksum bitflags 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "8dead7461c1127cf637931a1e50934eb6eee8bff2f74433ac7909e9afcee04a3"
 "checksum bitflags 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)" = "4f67931368edf3a9a51d29886d245f1c3db2f1ef0dcc9e35ff70341b78c10d23"
 "checksum bitflags 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)" = "aad18937a628ec6abcd26d1489012cc0e18c21798210f491af69ded9b881106d"
-"checksum bounded-spsc-queue 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "864e67f4f68b8a8f52342e247eb6f46368cc5e88cc9951e5aa62cacac0727772"
+"checksum bounded-spsc-queue 0.1.2 (git+https://github.com/plietar/bounded-spsc-queue)" = "<none>"
 "checksum byteorder 0.5.3 (registry+https://github.com/rust-lang/crates.io-index)" = "0fc10e8cc6b2580fda3f36eb6dc5316657f812a3df879a44a66fc9f0fdbc4855"
 "checksum bytes 0.4.0-dev (git+https://github.com/carllerche/bytes)" = "<none>"
 "checksum cfg-if 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "de1e760d7b6535af4241fca8bd8adf68e2e7edacc6b29f5d399050c5e48cf88c"
 "checksum cookie 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)" = "d53b80dde876f47f03cda35303e368a79b91c70b0d65ecba5fd5280944a08591"
-"checksum coreaudio-rs 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)" = "7a633fa29946681f8c98ad593c00a84189961970a01e317b054cdd7628794f7f"
+"checksum coreaudio-rs 0.6.0 (git+https://github.com/plietar/coreaudio-rs)" = "<none>"
 "checksum coreaudio-sys 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "31231897622a4cd14cb211af6f26d6fcf0c78078fa60c586ce9db8f0b581cd44"
 "checksum crossbeam 0.2.10 (registry+https://github.com/rust-lang/crates.io-index)" = "0c5ea215664ca264da8a9d9c3be80d2eaf30923c259d03e870388eb927508f97"
 "checksum dns-parser 0.3.2 (git+https://github.com/plietar/dns-parser)" = "<none>"

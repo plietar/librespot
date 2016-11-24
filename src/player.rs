@@ -198,7 +198,7 @@ impl Player {
 
 pub enum PlayerEvent {
     TrackEnd,
-    Playing(u32),
+    Playing,
 }
 
 impl Stream for Player {
@@ -243,9 +243,7 @@ impl Stream for Player {
                 }
 
                 (None, Playing) => {
-                    let absgp = try_ready!(self.stream()).last_absgp();
-                    let position = (absgp * 1000 / 44_100) as u32;
-                    return Ok(Async::Ready(Some(PlayerEvent::Playing(position))));
+                    return Ok(Async::Ready(Some(PlayerEvent::Playing)));
                 },
 
                 (None, Loaded) => return Ok(Async::Ready(None)),

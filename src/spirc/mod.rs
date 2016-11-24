@@ -353,16 +353,14 @@ impl Future for SpircManager {
                 sender.poll_complete()?;
             }
 
-            match self.player.poll()? {
-                Async::Ready(Some(PlayerEvent::TrackEnd)) => {
-                    self.next();
+            if let Async::Ready(Some(event)) = self.player.poll()? {
+                progress = true;
+                match event {
+                    PlayerEvent::TrackEnd => {
+                        self.next();
+                    }
+                    PlayerEvent::Playing => ()
                 }
-
-                Async::Ready(Some(PlayerEvent::Playing(position_ms))) => {
-                    self.state.set_position_ms(position_ms);
-                    self.state.set_position_measured_at(self.session.time());
-                }
-                _ => (),
             }
 
             if !progress {
