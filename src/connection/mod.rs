@@ -65,7 +65,7 @@ impl Connection {
     pub fn connect<'a>(&self, credentials: Credentials) -> SpFuture<'a, Credentials> {
         self.lock().state = State::Connecting;
 
-        const AP: &'static str = "sto3-accesspoint-a51.ap.spotify.com:4070";
+        const AP: &'static str = "lon6-accesspoint-a23.ap.spotify.com:4070";
         let addr = AP.to_socket_addrs().unwrap().next().unwrap();
 
         let connection = self.clone();

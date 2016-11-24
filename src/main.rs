@@ -2,6 +2,7 @@ extern crate argparse;
 extern crate env_logger;
 extern crate futures;
 extern crate librespot;
+extern crate log;
 extern crate rpassword;
 extern crate tokio_core as tokio;
 
@@ -58,8 +59,20 @@ impl Args {
     }
 }
 
+fn setup_logging() {
+    let mut builder = env_logger::LogBuilder::new();
+    builder.filter(Some("librespot"), log::LogLevelFilter::Info);
+    builder.filter(Some("mdns"), log::LogLevelFilter::Info);
+
+    if std::env::var("RUST_LOG").is_ok() {
+        builder.parse(&std::env::var("RUST_LOG").unwrap());
+    }
+
+    builder.init().unwrap();
+}
+
 pub fn main() {
-    env_logger::init().unwrap();
+    setup_logging();
 
     let args = Args::parse_or_exit();
     if args.username.is_none() && !args.discovery {
