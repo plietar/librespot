@@ -127,7 +127,9 @@ impl Player {
                 self.sink.pause().unwrap();
                 self.state = PlayerState::Loaded;
             }
-            PlayerState::Loaded => (),
+            PlayerState::Loaded => {
+                info!("called pause when already paused");
+            },
             PlayerState::Loading(ref mut play) => {
                 *play = false;
             }
@@ -139,7 +141,9 @@ impl Player {
 
     pub fn play(&mut self) {
         match self.state {
-            PlayerState::Playing => (),
+            PlayerState::Playing => {
+                info!("called play when already playing");
+            }
             PlayerState::Loaded => {
                 self.sink.start().unwrap();
                 self.state = PlayerState::Playing;

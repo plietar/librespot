@@ -23,6 +23,8 @@ pub struct SpircManager {
 
     state: State,
     state_update_id: i64,
+    last_command_ident: String,
+    last_command_msgid: u32,
 
     session: Session,
     connection_updates: BroadcastReceiver<ConnectionChange>,
@@ -46,6 +48,8 @@ impl SpircManager {
 
             state: State::new(),
             state_update_id: 0,
+            last_command_msgid: 0,
+            last_command_ident: String::new(),
 
             session: session.clone(),
             connection_updates: session.connection().updates(),
@@ -127,51 +131,70 @@ impl SpircManager {
             MessageType::kMessageTypeHello => self.notify(sender),
 
             MessageType::kMessageTypeVolume => {
+                self.last_command_msgid = frame.get_seq_nr();
+                self.last_command_ident = frame.get_ident().to_owned();
+
                 self.volume = frame.get_volume();
                 self.notify(None);
             }
 
             MessageType::kMessageTypePlay => {
-                self.state.set_status(PlayStatus::kPlayStatusPlay);
-                self.player.play();
-                self.notify(None);
+                if self.is_active {
+                    self.last_command_msgid = frame.get_seq_nr();
+                    self.last_command_ident = frame.get_ident().to_owned();
+
+                    self.state.set_status(PlayStatus::kPlayStatusPlay);
+                    self.state_update_id = self.session.time() as i64;
+                    self.player.play();
+                    self.notify(None);
+                }
             }
 
             MessageType::kMessageTypePause => {
-                self.state.set_status(PlayStatus::kPlayStatusPause);
-                self.player.pause();
-                self.notify(None);
+                if self.is_active {
+                    self.last_command_msgid = frame.get_seq_nr();
+                    self.last_command_ident = frame.get_ident().to_owned();
+
+                    self.state.set_status(PlayStatus::kPlayStatusPause);
+                    self.state_update_id = self.session.time() as i64;
+                    self.player.pause();
+                    self.notify(None);
+                }
+            }
+
+            MessageType::kMessageTypeNext => {
+                if self.is_active {
+                    self.last_command_msgid = frame.get_seq_nr();
+                    self.last_command_ident = frame.get_ident().to_owned();
+                    self.next();
+                }
+            }
+
+            MessageType::kMessageTypePrev => {
+                if self.is_active {
+                    self.last_command_msgid = frame.get_seq_nr();
+                    self.last_command_ident = frame.get_ident().to_owned();
+                    self.prev();
+                }
             }
 
             MessageType::kMessageTypeLoad => {
+                self.last_command_msgid = frame.get_seq_nr();
+                self.last_command_ident = frame.get_ident().to_owned();
+
                 if !self.is_active {
                     self.is_active = true;
                     self.became_active_at = self.session.time() as i64;
                 }
 
                 self.state = frame.get_state().clone();
-                self.state_update_id = self.session.time() as i64;
                 self.state.set_playing_from_fallback(true);
 
                 let index = self.state.get_playing_track_index();
-                let track = self.state.get_track().get(index as usize).cloned();
-
-                if let Some(track) = track {
-                    self.player.load(SpotifyId::from_raw(track.get_gid()));
-                    self.state.set_position_ms(0);
-                    self.state.set_position_measured_at(self.session.time());
-
-                    if self.state.get_status() == PlayStatus::kPlayStatusPlay {
-                        self.player.play();
-                    }
-                }
-
-                self.notify(None);
+                self.load_index(index);
             }
 
-            _ => {
-                self.notify(None);
-            }
+            _ => ()
         }
     }
 
@@ -195,8 +218,11 @@ impl SpircManager {
     fn notify<T>(&mut self, recipient: T)
         where T: Into<Option<String>>
     {
-        let state = self.state.clone();
+        let mut state = self.state.clone();
         let update_id = self.state_update_id;
+        state.set_last_command_ident(self.last_command_ident.clone());
+        state.set_last_command_msgid(self.last_command_msgid);
+
         self.command(MessageType::kMessageTypeNotify)
             .recipient(recipient)
             .state(state, update_id)
@@ -258,6 +284,43 @@ impl SpircManager {
             ],
         })
     }
+
+    pub fn load_index(&mut self, index: u32) {
+        let track = self.state.get_track().get(index as usize).cloned();
+        if let Some(track) = track {
+            self.player.load(SpotifyId::from_raw(track.get_gid()));
+            if self.state.get_status() == PlayStatus::kPlayStatusPlay {
+                self.player.play();
+            }
+            self.state.set_playing_track_index(index);
+        } else {
+            self.state.set_status(PlayStatus::kPlayStatusStop);
+            self.state.set_playing_track_index(0);
+        }
+
+        self.state.set_position_ms(0);
+        self.state.set_position_measured_at(self.session.time());
+        self.state_update_id = self.session.time() as i64;
+        self.notify(None);
+    }
+
+    pub fn next(&mut self) {
+        let current_index = self.state.get_playing_track_index();
+        let index = (current_index + 1) % self.state.get_track().len() as u32;
+
+        self.load_index(index);
+    }
+
+    pub fn prev(&mut self) {
+        let current_index = self.state.get_playing_track_index();
+        let index = if current_index > 0 {
+            current_index - 1
+        } else {
+            self.state.get_track().len() as u32 - 1
+        };
+
+        self.load_index(index);
+    }
 }
 
 impl Future for SpircManager {
@@ -292,23 +355,7 @@ impl Future for SpircManager {
 
             match self.player.poll()? {
                 Async::Ready(Some(PlayerEvent::TrackEnd)) => {
-                    let index = self.state.get_playing_track_index() % self.state.get_track().len() as u32;
-                    self.state.set_playing_track_index(index);
-
-                    let track = self.state.get_track().get(index as usize).cloned();
-                    if let Some(track) = track {
-                        self.player.load(SpotifyId::from_raw(track.get_gid()));
-                        self.player.play();
-                        progress = true;
-                    } else {
-                        self.state.set_status(PlayStatus::kPlayStatusStop);
-                        self.state.set_playing_track_index(0);
-                    }
-
-                    self.state_update_id = self.session.time() as i64;
-                    self.state.set_position_ms(0);
-                    self.state.set_position_measured_at(self.session.time());
-                    self.notify(None);
+                    self.next();
                 }
 
                 Async::Ready(Some(PlayerEvent::Playing(position_ms))) => {
