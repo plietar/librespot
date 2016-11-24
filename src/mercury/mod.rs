@@ -55,29 +55,22 @@ impl MercuryManager {
         let cmd = req.method.command();
         let data = req.encode(&seq);
 
-        let manager = self.clone();
+        let pending = MercuryPending {
+            parts: Vec::new(),
+            partial: None,
+            callback: Some(complete),
+        };
+        self.lock().pending.insert(seq, pending);
 
         self.session()
             .connection()
             .send(cmd, data).and_then(move |()| {
-
-            let pending = MercuryPending {
-                parts: Vec::new(),
-                partial: None,
-                callback: Some(complete),
-            };
-
-            manager.lock().pending.insert(seq, pending);
-
-            future.then(|result| {
-                match result {
+                future.then(|result| match result {
                     Ok(result) => result,
-                    Err(Canceled) => {
-                        Err(SpError::InternalError("mercury complete dropped"))
-                    }
-                }
-            })
-        }).sp_boxed()
+                    Err(Canceled)
+                        => Err(SpError::InternalError("mercury complete dropped")),
+                })
+            }).sp_boxed()
     }
 
     pub fn get<'a, T: Into<String>>(&self, uri: T) -> SpFuture<'a, MercuryResponse> {
