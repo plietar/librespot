@@ -42,7 +42,7 @@ target/release/librespot --username USERNAME --cache CACHEDIR --name DEVICENAME
 
 ## Discovery mode
 *librespot* can be run in discovery mode, in which case no password is required at startup.
-For that, simply omit the `--username` argument.
+For that, run with the `--discovery` argument and omit the `--username` argument.
 
 ## Facebook Accounts
 *librespot* can be built with Facebook authentication support. OpenSSL is required for this.
