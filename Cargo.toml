@@ -77,6 +77,7 @@ facebook          = ["hyper/ssl", "openssl"]
 alsa-backend      = ["alsa"]
 portaudio-backend = ["portaudio"]
 pulseaudio-backend= ["libpulse-sys"]
+nil-backend       = []
 default           = ["with-syntex", "portaudio-backend"]
 
 [package.metadata.deb]
