@@ -67,8 +67,9 @@ target/release/librespot [...] --backend portaudio
 
 The following backends are currently available :
 - ALSA
-- PortAudio 
+- PortAudio
 - PulseAudio
+- Nil (a black-hole for music bits)
 
 ## Development
 When developing *librespot*, it is preferable to use Rust nightly, and build it using the following :
@@ -88,4 +89,3 @@ https://gitter.im/sashahilton00/spotify-connect-resources
 
 ## License
 Everything in this repository is licensed under the MIT license.
-

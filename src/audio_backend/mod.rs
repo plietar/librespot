@@ -69,6 +69,10 @@ mod pulseaudio;
 #[cfg(feature = "pulseaudio-backend")]
 use self::pulseaudio::PulseAudioSink;
 
+#[cfg(feature = "nil-backend")]
+mod nil;
+#[cfg(feature = "nil-backend")]
+use self::nil::NilSink;
 
 declare_backends! {
     pub const BACKENDS : &'static [
@@ -81,5 +85,7 @@ declare_backends! {
         ("portaudio", &mk_sink::<PortAudioSink>),
         #[cfg(feature = "pulseaudio-backend")]
         ("pulseaudio", &mk_sink::<PulseAudioSink>),
+        #[cfg(feature = "nil-backend")]
+        ("nil", &mk_sink::<NilSink>),
     ];
 }
