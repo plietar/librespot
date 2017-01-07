@@ -8,7 +8,8 @@ User=nobody
 Group=audio
 Restart=always
 RestartSec=10
-ExecStart=/usr/bin/librespot -n "%p on %H"
+EnvironmentFile=-/etc/conf.d/librespot.conf
+ExecStart=/usr/bin/librespot -n "%p on %H" $LIBRESPOT_ARGS
 
 [Install]
 WantedBy=multi-user.target
