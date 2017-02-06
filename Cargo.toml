@@ -26,6 +26,7 @@ byteorder       = "1.0"
 ctrlc           = { version = "2.0", features = ["termination"] }
 env_logger      = "0.3.2"
 eventual        = "0.1.6"
+extprim         = "~1.1.0" 
 getopts         = "0.2.14"
 hyper           = { version = "0.9.1", default-features = false }
 lazy_static     = "0.2.0"
@@ -44,6 +45,7 @@ serde_macros    = { version = "0.8", optional = true }
 shannon         = { git = "https://github.com/plietar/rust-shannon" }
 tempfile        = "2.1"
 url             = "0.5.0"
+ws              = "0.5.3"
 
 vorbis          = "0.1.0"
 tremor          = { git = "https://github.com/plietar/rust-tremor", optional = true }

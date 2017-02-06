@@ -11,6 +11,8 @@ use metadata::{FileFormat, Track, TrackRef};
 use session::{Bitrate, Session};
 use util::{self, ReadSeek, SpotifyId, Subfile};
 pub use spirc::PlayStatus;
+use websockets;
+use ws::Message;
 
 #[cfg(not(feature = "with-tremor"))]
 fn vorbis_time_seek_ms<R>(decoder: &mut vorbis::Decoder<R>, ms: i64) -> Result<(), vorbis::VorbisError> where R: Read + Seek {
@@ -229,6 +231,7 @@ fn run_onstop(session: &Session) {
 }
 
 impl PlayerInternal {
+    
     fn run(self, mut sink: Box<Sink>) {
         let mut decoder = None;
 
@@ -273,6 +276,18 @@ impl PlayerInternal {
                                 };
                                 state.position_ms = position;
                                 state.position_measured_at = util::now_ms();
+                                
+                                let track = &self.session.metadata::<Track>(track_id).await().unwrap();
+                                
+                                if state.status == PlayStatus::kPlayStatusPlay {
+                                    info!("Spotify URI: spotify:track:{}", track_id.to_base62());
+                                    info!("Playing track {:?}", track.name);
+                                    info!("Playback started at: {}", state.position_ms as f32 / 1000.00);
+                                    websockets::broadcast_message(Message::from(format!("{{\n  \"action\": \"{}\",\n  \"status\": \"{}\",\n  \"data\": {{\n    \"spotify_id\": \"{}\",\n    \"track_name\": \"{}\",\n    \"playback_from\": \"{}\"\n  }}\n}}", "track.load", "success", track_id.to_base62(), track.name, state.position_ms as f32 / 1000.00)));
+                                } else {
+                                    info!("Failed to load track.");
+                                    websockets::broadcast_message(Message::from(format!("{{\n  \"action\": \"{}\",\n  \"status\": \"{}\",\n  \"data\": {{\n    \"spotify_id\": \"{}\"\n  }}\n}}", "track.load", "fail", track_id.to_base62())));
+                                }
 
                                 true
                             });
@@ -302,6 +317,7 @@ impl PlayerInternal {
                     self.update(|state| {
                         state.position_ms = vorbis_time_tell_ms(decoder.as_mut().unwrap()).unwrap() as u32;
                         state.position_measured_at = util::now_ms();
+                        websockets::broadcast_message(Message::from(format!("{{\n  \"action\": \"{}\",\n  \"status\": \"{}\",\n  \"data\": {{\n    \"playback_from\": \"{}\"\n  }}\n}}", "track.seek", "success", state.position_ms as f32 / 1000.00)));
 
                         true
                     });
@@ -316,6 +332,7 @@ impl PlayerInternal {
                     self.update(|state| {
                         state.position_ms = vorbis_time_tell_ms(decoder.as_mut().unwrap()).unwrap() as u32;
                         state.position_measured_at = util::now_ms();
+                        websockets::broadcast_message(Message::from(format!("{{\n  \"action\": \"{}\",\n  \"status\": \"{}\",\n  \"data\": {{\n    \"playback_from\": \"{}\"\n  }}\n}}", "track.seek", "success", state.position_ms as f32 / 1000.00)));
 
                         true
                     });
@@ -325,6 +342,8 @@ impl PlayerInternal {
                         state.status = PlayStatus::kPlayStatusPlay;
                         state.position_ms = vorbis_time_tell_ms(decoder.as_mut().unwrap()).unwrap() as u32;
                         state.position_measured_at = util::now_ms();
+                        websockets::broadcast_message(Message::from(format!("{{\n  \"action\": \"{}\",\n  \"status\": \"{}\",\n  \"data\": {{\n    \"playback_from\": \"{}\"\n  }}\n}}", "track.play", "success", state.position_ms as f32 / 1000.00)));
+                        
                         true
                     });
 
@@ -337,6 +356,8 @@ impl PlayerInternal {
                         state.update_time = util::now_ms();
                         state.position_ms = decoder.as_mut().map(|d| vorbis_time_tell_ms(d).unwrap()).unwrap_or(0) as u32;
                         state.position_measured_at = util::now_ms();
+                        websockets::broadcast_message(Message::from(format!("{{\n  \"action\": \"{}\",\n  \"status\": \"{}\",\n  \"data\": {{\n    \"playback_from\": \"{}\"\n  }}\n}}", "track.pause", "success", state.position_ms as f32 / 1000.00)));
+                        
                         true
                     });
 
@@ -346,6 +367,8 @@ impl PlayerInternal {
                 Some(PlayerCommand::Volume(vol)) => {
                     self.update(|state| {
                         state.volume = vol;
+                        websockets::broadcast_message(Message::from(format!("{{\n  \"action\": \"{}\",\n  \"status\": \"{}\",\n  \"data\": {{\n    \"volume_level\": \"{}\"\n  }}\n}}", "volume.level", "success", vol as f32 / 65535.00)));
+                        
                         true
                     });
                 }
@@ -356,6 +379,8 @@ impl PlayerInternal {
                         }
                         state.position_ms = 0;
                         state.position_measured_at = util::now_ms();
+                        websockets::broadcast_message(Message::from(format!("{{\n  \"action\": \"{}\",\n  \"status\": \"{}\"}}", "track.stop", "success")));
+                        
                         true
                     });
 

@@ -15,6 +15,7 @@ extern crate bit_set;
 extern crate byteorder;
 extern crate crypto;
 extern crate eventual;
+extern crate extprim;
 extern crate getopts;
 extern crate hyper;
 extern crate linear_map;
@@ -30,6 +31,7 @@ extern crate serde_json;
 extern crate shannon;
 extern crate tempfile;
 extern crate url;
+extern crate ws;
 
 extern crate librespot_protocol as protocol;
 
@@ -60,6 +62,7 @@ pub mod player;
 pub mod stream;
 pub mod util;
 pub mod version;
+pub mod websockets;
 
 #[cfg(feature = "with-syntex")] include!(concat!(env!("OUT_DIR"), "/lib.rs"));
 #[cfg(not(feature = "with-syntex"))] include!("lib.in.rs");
