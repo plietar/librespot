@@ -44,13 +44,6 @@ impl Handler for Server {
     }
 }
 
-impl Server {
-    pub fn broadcast_message(&mut self, msg: Message) -> Result<()> {
-        //self is a mutable reference to the Server struct containing the out variable from below.
-        self.out.broadcast(msg)
-    }
-}
-
 pub fn broadcast_message(msg: Message) -> Result<()> {
     //self is a mutable reference to the Server struct containing the out variable from below.
     connect("ws://127.0.0.1:3012", |out| {
