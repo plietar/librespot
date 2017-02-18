@@ -3,6 +3,7 @@ extern crate getopts;
 extern crate librespot;
 extern crate ctrlc;
 extern crate env_logger;
+extern crate ws;
 
 use env_logger::LogBuilder;
 use std::io::{stderr, Write};
@@ -19,6 +20,7 @@ use librespot::cache::{Cache, DefaultCache, NoCache};
 use librespot::player::Player;
 use librespot::session::{Bitrate, Config, Session};
 use librespot::version;
+use librespot::websockets;
 
 fn usage(program: &str, opts: &getopts::Options) -> String {
     let brief = format!("Usage: {} [options]", program);
@@ -135,6 +137,7 @@ fn main() {
     let spirc = SpircManager::new(session.clone(), player);
     let spirc_signal = spirc.clone();
     thread::spawn(move || spirc.run());
+    thread::spawn(move || websockets::setup_websockets());
 
     ctrlc::set_handler(move || {
         spirc_signal.send_goodbye();
