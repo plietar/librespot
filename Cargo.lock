@@ -12,6 +12,7 @@ dependencies = [
  "hyper 0.9.14 (registry+https://github.com/rust-lang/crates.io-index)",
  "json_macros 0.3.1 (git+https://github.com/plietar/json_macros)",
  "lazy_static 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libc 0.2.18 (registry+https://github.com/rust-lang/crates.io-index)",
  "libpulse-sys 0.0.0 (git+https://github.com/astro/libpulse-sys)",
  "librespot-protocol 0.1.0",
  "linear-map 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -22,6 +23,7 @@ dependencies = [
  "portaudio 0.2.0 (git+https://github.com/mvdnes/portaudio-rs)",
  "protobuf 1.0.24 (registry+https://github.com/rust-lang/crates.io-index)",
  "protobuf_macros 0.6.0 (git+https://github.com/plietar/rust-protobuf-macros)",
+ "pulse-simple-ng 0.1.0 (git+https://github.com/marcust/rust-pulse-simple-ng)",
  "rand 0.3.15 (registry+https://github.com/rust-lang/crates.io-index)",
  "rpassword 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rust-crypto 0.2.36 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -551,6 +553,16 @@ dependencies = [
  "aster 0.36.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "syntex 0.52.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "syntex_syntax 0.52.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "pulse-simple-ng"
+version = "0.1.0"
+source = "git+https://github.com/marcust/rust-pulse-simple-ng#3c4c6457db547c3ed2a7de5c8a130b40df55ebc2"
+dependencies = [
+ "libc 0.2.18 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libpulse-sys 0.0.0 (git+https://github.com/astro/libpulse-sys)",
+ "log 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -1203,6 +1215,7 @@ dependencies = [
 "checksum portaudio_sys 0.1.1 (git+https://github.com/mvdnes/portaudio-rs)" = "<none>"
 "checksum protobuf 1.0.24 (registry+https://github.com/rust-lang/crates.io-index)" = "6ec4c2fe04370298218a09ab53a534febf54c160c5554e4de987b6d73c916d5d"
 "checksum protobuf_macros 0.6.0 (git+https://github.com/plietar/rust-protobuf-macros)" = "<none>"
+"checksum pulse-simple-ng 0.1.0 (git+https://github.com/marcust/rust-pulse-simple-ng)" = "<none>"
 "checksum quasi 0.20.1 (registry+https://github.com/rust-lang/crates.io-index)" = "94a532453b931a4483a5b2e40f0fe04aee35b6bc2c0eeec876f1bd2358a134d3"
 "checksum quasi 0.26.0 (registry+https://github.com/rust-lang/crates.io-index)" = "8ab7992920bf5bc5f1ed6fdc49090bf665cd00b3aa4b78c16ac3465286257db1"
 "checksum quasi_codegen 0.20.0 (registry+https://github.com/rust-lang/crates.io-index)" = "cfb4a9a5410fdbdacbeda8063ddb8add9838dfd4cf50ac486db98abb762d8bd6"
