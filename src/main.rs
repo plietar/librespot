@@ -71,7 +71,7 @@ struct Setup {
     backend: fn(Option<String>) -> Box<Sink>,
     device: Option<String>,
 
-    mixer: fn() -> Box<Mixer>,
+    mixer: fn(Option<String>) -> Box<Mixer>,
 
     cache: Option<Cache>,
     config: Config,
@@ -169,7 +169,7 @@ struct Main {
     config: Config,
     backend: fn(Option<String>) -> Box<Sink>,
     device: Option<String>,
-    mixer: fn() -> Box<Mixer>,
+    mixer: fn(Option<String>) -> Box<Mixer>,
     handle: Handle,
 
     discovery: Option<DiscoveryStream>,
@@ -188,7 +188,7 @@ impl Main {
            cache: Option<Cache>,
            backend: fn(Option<String>) -> Box<Sink>,
            device: Option<String>,
-           mixer: fn() -> Box<Mixer>) -> Main
+           mixer: fn(Option<String>) -> Box<Mixer>) -> Main
     {
         Main {
             handle: handle.clone(),
@@ -248,10 +248,11 @@ impl Future for Main {
             if let Async::Ready(session) = self.connect.poll().unwrap() {
                 self.connect = Box::new(futures::future::empty());
                 let device = self.device.clone();
-                let mixer = (self.mixer)();
+                let mixer = (self.mixer)(device);
 
                 let audio_filter = mixer.get_audio_filter();
                 let backend = self.backend;
+                let device = self.device.clone();
                 let player = Player::new(session.clone(), audio_filter, move || {
                     (backend)(device)
                 });
