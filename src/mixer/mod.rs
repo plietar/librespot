@@ -16,6 +16,11 @@ pub trait AudioFilter {
 pub mod softmixer;
 use self::softmixer::SoftMixer;
 
+#[cfg(feature = "alsa-backend")]
+pub mod alsasoftvol;
+#[cfg(feature = "alsa-backend")]
+use self::alsasoftvol::AlsaSoftVol;
+
 fn mk_sink<M: Mixer + 'static>(device: Option<String>) -> Box<Mixer> {
     Box::new(M::open(device))
 }
@@ -23,6 +28,8 @@ fn mk_sink<M: Mixer + 'static>(device: Option<String>) -> Box<Mixer> {
 pub fn find<T: AsRef<str>>(name: Option<T>) -> Option<fn(Option<String>) -> Box<Mixer>> {
     match name.as_ref().map(AsRef::as_ref) {
         None | Some("softvol") => Some(mk_sink::<SoftMixer>),
+        #[cfg(feature = "alsa-backend")]
+        Some("alsasoftvol") => Some(mk_sink::<AlsaSoftVol>),
         _ => None,
     }
 }
