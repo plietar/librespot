@@ -48,7 +48,7 @@ url             = "1.3"
 vorbis          = "0.1.0"
 tremor          = { git = "https://github.com/plietar/rust-tremor", optional = true }
 
-alsa            = { git = "https://github.com/plietar/rust-alsa", optional = true }
+alsa            = { git = "https://github.com/diwic/alsa-rs", optional = true }
 portaudio       = { git = "https://github.com/mvdnes/portaudio-rs", optional = true }
 libpulse-sys    = { git = "https://github.com/astro/libpulse-sys", optional = true }
 

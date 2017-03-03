@@ -2,7 +2,7 @@
 name = "librespot"
 version = "0.1.0"
 dependencies = [
- "alsa 0.0.1 (git+https://github.com/plietar/rust-alsa)",
+ "alsa 0.1.3 (git+https://github.com/diwic/alsa-rs)",
  "base64 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "bit-set 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "byteorder 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -50,10 +50,21 @@ dependencies = [
 
 [[package]]
 name = "alsa"
-version = "0.0.1"
-source = "git+https://github.com/plietar/rust-alsa#8c63543fa0ccd971cf15f5675293d19febd6f79e"
+version = "0.1.3"
+source = "git+https://github.com/diwic/alsa-rs#2dc3888fd55c48e66abb6f1a24f5f360ca945648"
+dependencies = [
+ "alsa-sys 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "bitflags 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libc 0.2.20 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "alsa-sys"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "libc 0.2.20 (registry+https://github.com/rust-lang/crates.io-index)",
+ "pkg-config 0.3.9 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -93,6 +104,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "bitflags"
 version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "bitflags"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
@@ -932,13 +948,15 @@ dependencies = [
 
 [metadata]
 "checksum aho-corasick 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)" = "0638fd549427caa90c499814196d1b9e3725eb4d15d7339d6de073a680ed0ca2"
-"checksum alsa 0.0.1 (git+https://github.com/plietar/rust-alsa)" = "<none>"
+"checksum alsa 0.1.3 (git+https://github.com/diwic/alsa-rs)" = "<none>"
+"checksum alsa-sys 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "2c3f84e271f1613d7d7cbf6608beaed341c3f3d7e57045a6fc1a7d112380613c"
 "checksum aster 0.41.0 (registry+https://github.com/rust-lang/crates.io-index)" = "4ccfdf7355d9db158df68f976ed030ab0f6578af811f5a7bb6dcf221ec24e0e0"
 "checksum base64 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "065a0ce220ab84d0b6d5ae3e7bb77232209519c366f51f946fe28c19e84989d0"
 "checksum bit-set 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "d9bf6104718e80d7b26a68fdbacff3481cfc05df670821affc7e9cbc1884400c"
 "checksum bit-vec 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)" = "5b97c2c8e8bbb4251754f559df8af22fb264853c7d009084a576cdf12565089d"
 "checksum bitflags 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)" = "32866f4d103c4e438b1db1158aa1b1a80ee078e5d77a59a2f906fd62a577389c"
 "checksum bitflags 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "8dead7461c1127cf637931a1e50934eb6eee8bff2f74433ac7909e9afcee04a3"
+"checksum bitflags 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)" = "4f67931368edf3a9a51d29886d245f1c3db2f1ef0dcc9e35ff70341b78c10d23"
 "checksum bitflags 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)" = "aad18937a628ec6abcd26d1489012cc0e18c21798210f491af69ded9b881106d"
 "checksum bitflags 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)" = "826e1ab483fc81a8143faa7203c4a3c02888ebd1a782e37e41fa34753ba9a162"
 "checksum byteorder 0.5.3 (registry+https://github.com/rust-lang/crates.io-index)" = "0fc10e8cc6b2580fda3f36eb6dc5316657f812a3df879a44a66fc9f0fdbc4855"
