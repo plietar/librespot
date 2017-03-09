@@ -364,6 +364,7 @@ impl SpircTask {
                 if !self.fixed_volume {
                     self.mixer.set_volume(frame.get_volume() as u16);
                 }
+                debug!("volume {}", volume);
                 self.notify(None);
 
             }
