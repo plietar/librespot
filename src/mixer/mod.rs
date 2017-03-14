@@ -16,6 +16,9 @@ pub trait AudioFilter {
 pub mod softmixer;
 use self::softmixer::SoftMixer;
 
+pub mod fixedmixer;
+use self::fixedmixer::FixedMixer;
+
 fn mk_sink<M: Mixer + 'static>() -> Box<Mixer> {
     Box::new(M::open())
 }
@@ -23,6 +26,7 @@ fn mk_sink<M: Mixer + 'static>() -> Box<Mixer> {
 pub fn find<T: AsRef<str>>(name: Option<T>) -> Option<fn() -> Box<Mixer>> {
     match name.as_ref().map(AsRef::as_ref) {
         None | Some("softvol") => Some(mk_sink::<SoftMixer>),
+        Some("fixedvol") => Some(mk_sink::<FixedMixer>),
         _ => None,
     }
 }
