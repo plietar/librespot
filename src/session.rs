@@ -49,6 +49,7 @@ pub struct Config {
     pub bitrate: Bitrate,
     pub onstart: Option<String>,
     pub onstop: Option<String>,
+    pub discovery_port: Option<u16>
 }
 
 impl Default for Config {
@@ -60,6 +61,7 @@ impl Default for Config {
             bitrate: Bitrate::Bitrate160,
             onstart: None,
             onstop: None,
+            discovery_port: None,
         }
     }
 }

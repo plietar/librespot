@@ -13,6 +13,7 @@ use rand;
 use std::collections::BTreeMap;
 use std::io;
 use std::sync::Arc;
+use std::net::{SocketAddr,IpAddr,Ipv4Addr};
 use tokio_core::net::TcpListener;
 use tokio_core::reactor::Handle;
 use url;
@@ -206,12 +207,13 @@ pub struct DiscoveryStream {
     task: Box<Future<Item=(), Error=io::Error>>,
 }
 
-pub fn discovery(handle: &Handle, device_name: String, device_id: String)
+pub fn discovery(handle: &Handle, device_name: String, device_id: String, discovery_port: Option<u16>)
     -> io::Result<DiscoveryStream>
 {
     let (discovery, creds_rx) = Discovery::new(device_name.clone(), device_id);
+    let bind_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), discovery_port.unwrap_or(0));
 
-    let listener = TcpListener::bind(&"0.0.0.0:0".parse().unwrap(), handle)?;
+    let listener = TcpListener::bind(&bind_addr, handle)?;
     let addr = listener.local_addr()?;
 
     let http = Http::new();
