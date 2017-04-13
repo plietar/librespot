@@ -77,6 +77,7 @@ struct Setup {
     config: Config,
     credentials: Option<Credentials>,
     enable_discovery: bool,
+    fixed_volume: bool,
 }
 
 fn setup(args: &[String]) -> Setup {
@@ -90,6 +91,7 @@ fn setup(args: &[String]) -> Setup {
         .optopt("u", "username", "Username to sign in with", "USERNAME")
         .optopt("p", "password", "Password", "PASSWORD")
         .optflag("", "disable-discovery", "Disable discovery mode")
+        .optflag("", "fixed-volume", "Always set volume to 100%")
         .optopt("", "backend", "Audio backend to use. Use '?' to list options", "BACKEND")
         .optopt("", "device", "Audio device to use. Use '?' to list options", "DEVICE")
         .optopt("", "mixer", "Mixer to use", "MIXER");
@@ -141,6 +143,7 @@ fn setup(args: &[String]) -> Setup {
                                       cached_credentials);
 
     let enable_discovery = !matches.opt_present("disable-discovery");
+    let fixed_volume = matches.opt_present("fixed-volume");
 
     let config = Config {
         user_agent: version::version_string(),
@@ -160,6 +163,7 @@ fn setup(args: &[String]) -> Setup {
         credentials: credentials,
         device: device,
         enable_discovery: enable_discovery,
+        fixed_volume: fixed_volume,
         mixer: mixer,
     }
 }
@@ -170,6 +174,7 @@ struct Main {
     backend: fn(Option<String>) -> Box<Sink>,
     device: Option<String>,
     mixer: fn() -> Box<Mixer>,
+    fixed_volume: bool,
     handle: Handle,
 
     discovery: Option<DiscoveryStream>,
@@ -188,7 +193,8 @@ impl Main {
            cache: Option<Cache>,
            backend: fn(Option<String>) -> Box<Sink>,
            device: Option<String>,
-           mixer: fn() -> Box<Mixer>) -> Main
+           mixer: fn() -> Box<Mixer>,
+           fixed_volume: bool) -> Main
     {
         Main {
             handle: handle.clone(),
@@ -197,6 +203,7 @@ impl Main {
             backend: backend,
             device: device,
             mixer: mixer,
+            fixed_volume: fixed_volume,
 
             connect: Box::new(futures::future::empty()),
             discovery: None,
@@ -256,7 +263,7 @@ impl Future for Main {
                     (backend)(device)
                 });
 
-                let (spirc, spirc_task) = Spirc::new(session, player, mixer);
+                let (spirc, spirc_task) = Spirc::new(session, player, mixer, self.fixed_volume);
                 self.spirc = Some(spirc);
                 self.spirc_task = Some(spirc_task);
 
@@ -298,9 +305,9 @@ fn main() {
     let handle = core.handle();
 
     let args: Vec<String> = std::env::args().collect();
-    let Setup { backend, config, device, cache, enable_discovery, credentials, mixer } = setup(&args);
+    let Setup { backend, config, device, cache, enable_discovery, fixed_volume, credentials, mixer } = setup(&args);
 
-    let mut task = Main::new(handle, config.clone(), cache, backend, device, mixer);
+    let mut task = Main::new(handle, config.clone(), cache, backend, device, mixer, fixed_volume);
     if enable_discovery {
         task.discovery();
     }

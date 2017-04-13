@@ -18,6 +18,7 @@ use protocol::spirc::{PlayStatus, State, MessageType, Frame, DeviceState};
 pub struct SpircTask {
     player: Player,
     mixer: Box<Mixer>,
+    fixed_volume: bool,
 
     sequence: SeqGenerator<u32>,
 
@@ -118,7 +119,7 @@ fn initial_device_state(name: String, volume: u16) -> DeviceState {
 }
 
 impl Spirc {
-    pub fn new(session: Session, player: Player, mixer: Box<Mixer>)
+    pub fn new(session: Session, player: Player, mixer: Box<Mixer>, fixed_volume: bool)
         -> (Spirc, SpircTask)
     {
         debug!("new Spirc[{}]", session.session_id());
@@ -148,6 +149,7 @@ impl Spirc {
         let mut task = SpircTask {
             player: player,
             mixer: mixer,
+            fixed_volume: fixed_volume,
 
             sequence: SeqGenerator::new(1),
 
@@ -412,8 +414,12 @@ impl SpircTask {
             MessageType::kMessageTypeVolume => {
                 let volume = frame.get_volume();
                 self.device.set_volume(volume);
-                self.mixer.set_volume(frame.get_volume() as u16);
+                if !self.fixed_volume {
+                    self.mixer.set_volume(frame.get_volume() as u16);
+                }
+                debug!("volume {}", volume);
                 self.notify(None);
+
             }
 
             MessageType::kMessageTypeNotify => {
