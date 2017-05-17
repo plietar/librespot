@@ -29,6 +29,9 @@ On OS X, using homebrew :
 brew install portaudio
 ```
 
+On debian / ubuntu the following dependencies need to be installed:
+`libavahi-compat-libdnssd-dev`, `portaudio19-dev`, `libprotoc-dev`, `libprotobuf-dev`
+
 Once you've cloned this repository you can build *librespot* using `cargo`.
 ```shell
 cargo build --release
