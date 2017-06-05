@@ -45,7 +45,7 @@ target/release/librespot --username USERNAME --cache CACHEDIR --name DEVICENAME
 
 ## Discovery mode
 *librespot* can be run in discovery mode, in which case no password is required at startup.
-For that, simply omit the `--username` argument.
+For that, run with the `--discovery` argument and omit the `--username` argument.
 
 ## Audio Backends
 *librespot* supports various audio backends. Multiple backends can be enabled at compile time by enabling the
