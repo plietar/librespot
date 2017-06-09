@@ -6,7 +6,6 @@ use futures::sync::mpsc;
 use futures::{Future, Stream, BoxFuture, Poll, Async};
 use hyper::server::{Service, NewService, Request, Response, Http};
 use hyper::{self, Get, Post, StatusCode};
-use mdns;
 use num_bigint::BigUint;
 use rand;
 use std::collections::BTreeMap;
@@ -20,6 +19,16 @@ use core::diffie_hellman::{DH_GENERATOR, DH_PRIME};
 use core::authentication::Credentials;
 use core::util;
 use core::config::ConnectConfig;
+
+cfg_if! {
+    if #[cfg(feature = "with-internal-mdns")] {
+        use mdns;
+    } else if #[cfg(feature = "with-external-mdns")] {
+        use dns_sd::DNSService;
+    } else {
+        use mdns;
+    }
+}
 
 #[derive(Clone)]
 struct Discovery(Arc<DiscoveryInner>);
@@ -201,39 +210,117 @@ impl NewService for Discovery {
     }
 }
 
-pub struct DiscoveryStream {
-    credentials: mpsc::UnboundedReceiver<Credentials>,
-    _svc: mdns::Service,
-    task: Box<Future<Item=(), Error=io::Error>>,
+cfg_if! {
+    if #[cfg(feature = "with-internal-mdns")] {
+            pub struct DiscoveryStream {
+                credentials: mpsc::UnboundedReceiver<Credentials>,
+                _svc: mdns::Service,
+                task: Box<Future<Item=(), Error=io::Error>>,
+            }
+        } else if #[cfg(feature = "with-external-mdns")] {
+            pub struct DiscoveryStream {
+                credentials: mpsc::UnboundedReceiver<Credentials>,
+                _svc: DNSService,
+                task: Box<Future<Item=(), Error=io::Error>>,
+            }
+        } else {
+            pub struct DiscoveryStream {
+                credentials: mpsc::UnboundedReceiver<Credentials>,
+                _svc: mdns::Service,
+                task: Box<Future<Item=(), Error=io::Error>>,
+            }
+        }
 }
 
-pub fn discovery(handle: &Handle, config: ConnectConfig, device_id: String)
-    -> io::Result<DiscoveryStream>
-{
-    let (discovery, creds_rx) = Discovery::new(config.clone(), device_id);
+cfg_if! {
+    if #[cfg(feature = "with-internal-mdns")] {
+        pub fn discovery(handle: &Handle, config: ConnectConfig, device_id: String)
+            -> io::Result<DiscoveryStream>
+        {
+            let (discovery, creds_rx) = Discovery::new(config.clone(), device_id);
 
-    let listener = TcpListener::bind(&"0.0.0.0:0".parse().unwrap(), handle)?;
-    let addr = listener.local_addr()?;
+            let listener = TcpListener::bind(&"0.0.0.0:0".parse().unwrap(), handle)?;
+            let addr = listener.local_addr()?;
 
-    let http = Http::new();
-    let handle_ = handle.clone();
-    let task = Box::new(listener.incoming().for_each(move |(socket, addr)| {
-        http.bind_connection(&handle_, socket, addr, discovery.clone());
-        Ok(())
-    }));
+            let http = Http::new();
+            let handle_ = handle.clone();
+            let task = Box::new(listener.incoming().for_each(move |(socket, addr)| {
+                http.bind_connection(&handle_, socket, addr, discovery.clone());
+                Ok(())
+            }));
 
-    let responder = mdns::Responder::spawn(&handle)?;
-    let svc = responder.register(
-        "_spotify-connect._tcp".to_owned(),
-        config.name,
-        addr.port(),
-        &["VERSION=1.0", "CPath=/"]);
+            let responder = mdns::Responder::spawn(&handle)?;
+            let svc = responder.register(
+                "_spotify-connect._tcp".to_owned(),
+                config.name,
+                addr.port(),
+                &["VERSION=1.0", "CPath=/"]);
 
-    Ok(DiscoveryStream {
-        credentials: creds_rx,
-        _svc: svc,
-        task: task,
-    })
+            Ok(DiscoveryStream {
+                credentials: creds_rx,
+                _svc: svc,
+                task: task,
+            })
+        }
+    } else if #[cfg(feature = "with-external-mdns")] {
+        pub fn discovery(handle: &Handle, config: ConnectConfig, device_id: String)
+            -> io::Result<DiscoveryStream>
+        {
+            let (discovery, creds_rx) = Discovery::new(config.clone(), device_id);
+
+            let listener = TcpListener::bind(&"0.0.0.0:0".parse().unwrap(), handle)?;
+            let port = listener.local_addr().unwrap().port();
+
+            let http = Http::new();
+            let handle_ = handle.clone();
+            let task = Box::new(listener.incoming().for_each(move |(socket, addr)| {
+                http.bind_connection(&handle_, socket, addr, discovery.clone());
+                Ok(())
+            }));
+
+            let svc = DNSService::register(Some(&*config.name),
+                                           "_spotify-connect._tcp",
+                                           None,
+                                           None,
+                                           port,
+                                           &["VERSION=1.0", "CPath=/"]).unwrap();
+
+            Ok(DiscoveryStream {
+                credentials: creds_rx,
+                _svc: svc,
+                task: task,
+            })
+        }
+        } else {
+        pub fn discovery(handle: &Handle, config: ConnectConfig, device_id: String)
+            -> io::Result<DiscoveryStream>
+        {
+            let (discovery, creds_rx) = Discovery::new(config.clone(), device_id);
+
+            let listener = TcpListener::bind(&"0.0.0.0:0".parse().unwrap(), handle)?;
+            let addr = listener.local_addr()?;
+
+            let http = Http::new();
+            let handle_ = handle.clone();
+            let task = Box::new(listener.incoming().for_each(move |(socket, addr)| {
+                http.bind_connection(&handle_, socket, addr, discovery.clone());
+                Ok(())
+            }));
+
+            let responder = mdns::Responder::spawn(&handle)?;
+            let svc = responder.register(
+                "_spotify-connect._tcp".to_owned(),
+                config.name,
+                addr.port(),
+                &["VERSION=1.0", "CPath=/"]);
+
+            Ok(DiscoveryStream {
+                credentials: creds_rx,
+                _svc: svc,
+                task: task,
+            })
+        }
+        }
 }
 
 impl Stream for DiscoveryStream {
