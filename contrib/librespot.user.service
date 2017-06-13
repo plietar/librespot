@@ -1,5 +1,6 @@
 [Unit]
-Description=Librespot
+Description=An open source Spotify client
+Documentation=https://github.com/plietar/librespot
 
 [Service]
 Restart=always
