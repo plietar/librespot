@@ -12,4 +12,3 @@ ExecStart=/usr/bin/librespot -n "%p on %H"
 
 [Install]
 WantedBy=multi-user.target
-
