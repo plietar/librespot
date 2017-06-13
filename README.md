@@ -87,6 +87,36 @@ docker run -v /tmp/librespot-build:/build librespot-cross cargo build --release 
 
 Don't forget to set the `with-tremor` feature flag if your target device does not have floating-point capabilities.
 
+## Running as daemon
+
+### As a system-wide service
+
+This requires copying the file `contrib/systemd.service` into
+`/usr/lib/systemd/system/`.  This'll allow running librespot as a system-wide
+service permanently by enabling it:
+
+    systemctl enable --now librespot
+
+This is the recommended approach for embedded devices.
+
+It is recommended that downstream packagers include this file in distribution
+packages.
+
+### librespot.user.service
+
+This requires copying the file `contrib/systemd.user.service` into
+`/usr/lib/systemd/user/`.  This'll allow running librespot as a user service
+which can be controlled without privileges, and is bound to the currently
+logged in user.
+
+    systemctl enable --now librespot
+
+This is the recommended approach for desktops and especially for shared devices
+where not all users will have root privileges.
+
+It is recommended that downstream packagers include this file in distribution
+packages.
+
 ## Development
 When developing *librespot*, it is preferable to use Rust nightly, and build it using the following :
 ```shell

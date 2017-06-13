@@ -1,0 +1,10 @@
+[Unit]
+Description=Librespot
+
+[Service]
+Restart=always
+RestartSec=12
+ExecStart=/usr/bin/librespot --name "%n@%H"
+
+[Install]
+WantedBy=default.target
