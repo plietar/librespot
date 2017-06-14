@@ -3,7 +3,9 @@ use byteorder::{ByteOrder, BigEndian, WriteBytesExt};
 use futures::Stream;
 use futures::sync::{oneshot, mpsc};
 use futures::{Poll, Async, Future};
-use futures::future::{self, FutureResult};
+#[cfg(feature = "with-audiocache")]
+use futures::future;
+use futures::future::FutureResult;
 use std::cmp::min;
 use std::fs;
 use std::io::{self, Read, Write, Seek, SeekFrom};
@@ -129,15 +131,19 @@ impl Future for AudioFileOpenStreaming {
 
 impl AudioFileManager {
     pub fn open(&self, file_id: FileId) -> AudioFileOpen {
+        #[cfg(feature = "with-audiocache")]
         let cache = self.session().cache().cloned();
 
-        if let Some(file) = cache.as_ref().and_then(|cache| cache.file(file_id)) {
-            debug!("File {} already in cache", file_id);
-            return AudioFileOpen::Cached(future::ok(file));
+        #[cfg(feature = "with-audiocache")] {
+            if let Some(file) = cache.as_ref().and_then(|cache| cache.file(file_id)) {
+                debug!("File {} already in cache", file_id);
+                return AudioFileOpen::Cached(future::ok(file));
+            }
         }
 
         debug!("Downloading file {}", file_id);
 
+        #[allow(unused_variables)]
         let (complete_tx, complete_rx) = oneshot::channel();
         let (headers, data) = request_chunk(&self.session(), file_id, 0).split();
 
@@ -151,7 +157,10 @@ impl AudioFileManager {
             complete_tx: Some(complete_tx),
         };
 
+        #[cfg(feature = "with-audiocache")]
         let session = self.session();
+        
+        #[cfg(feature = "with-audiocache")]
         self.session().spawn(move |_| {
             complete_rx.map(move |mut file| {
                 if let Some(cache) = session.cache() {
