@@ -5,7 +5,7 @@ Documentation=https://github.com/plietar/librespot
 [Service]
 Restart=always
 RestartSec=12
-ExecStart=/usr/bin/librespot --name "%n@%H"
+ExecStart=/bin/sh -c 'exec /usr/bin/librespot --name librespot@$(hostname -s)'
 
 [Install]
 WantedBy=default.target

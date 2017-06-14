@@ -9,7 +9,7 @@ User=nobody
 Group=audio
 Restart=always
 RestartSec=10
-ExecStart=/usr/bin/librespot -n "%p on %H"
+ExecStart=/bin/sh -c 'exec /usr/bin/librespot --name librespot@$(hostname -s)'
 
 [Install]
 WantedBy=multi-user.target
