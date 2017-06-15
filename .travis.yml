@@ -22,12 +22,12 @@ before_script:
     - rustup target add armv7-unknown-linux-gnueabihf
 
 script:
-    - cargo build --no-default-features
-    - cargo build --no-default-features --features "with-tremor"
-    - cargo build --no-default-features --features "portaudio-backend"
-    - cargo build --no-default-features --features "pulseaudio-backend"
-    - cargo build --no-default-features --features "alsa-backend"
-    - cargo build --no-default-features --target armv7-unknown-linux-gnueabihf
+    - cargo build --no-default-features --features "with-rust-mdns"
+    - cargo build --no-default-features --features "with-rust-mdns with-tremor"
+    - cargo build --no-default-features --features "with-rust-mdns portaudio-backend"
+    - cargo build --no-default-features --features "with-rust-mdns pulseaudio-backend"
+    - cargo build --no-default-features --features "with-rust-mdns alsa-backend"
+    - cargo build --no-default-features --target armv7-unknown-linux-gnueabihf --features "with-rust-mdns"
 
 notifications:
     email: false
