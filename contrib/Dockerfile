@@ -5,6 +5,9 @@
 # The resulting image can be used to build librespot for linux x86_64, armhf and armel.
 # $ docker run -v /tmp/librespot-build:/build librespot-cross
 #
+# To build librespot for armhf that also works on Raspberry Pi 1/Zero, run:
+# $ docker run -v /tmp/librespot-build:/build librespot-cross /src/contrib/docker-build-pi-armv6hf.sh
+#
 # The compiled binaries will be located in /tmp/librespot-build
 #
 # If only one architecture is desired, cargo can be invoked directly with the appropriate options :
