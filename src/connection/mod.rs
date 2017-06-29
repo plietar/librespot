@@ -41,7 +41,7 @@ pub fn authenticate(transport: Transport, credentials: Credentials, device_id: S
         system_info => {
             cpu_family: CpuFamily::CPU_UNKNOWN,
             os: Os::OS_UNKNOWN,
-            system_information_string: "librespot".to_string() + "_" + &(version::short_sha()) + "_" + &(version::short_now()),
+            system_information_string: format!("librespot-{}-{}", version::short_sha(), version::short_now()),
             device_id: device_id,
         },
         version_string: version::version_string(),
