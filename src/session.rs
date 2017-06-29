@@ -49,7 +49,6 @@ pub struct Config {
     pub bitrate: Bitrate,
     pub onstart: Option<String>,
     pub onstop: Option<String>,
-    pub use_audio_cache: bool,
 }
 
 impl Default for Config {
@@ -61,7 +60,6 @@ impl Default for Config {
             bitrate: Bitrate::Bitrate160,
             onstart: None,
             onstop: None,
-            use_audio_cache: true,
         }
     }
 }

@@ -151,19 +151,17 @@ impl AudioFileManager {
             complete_tx: Some(complete_tx),
         };
 
-        if self.session().config().use_audio_cache {
-            let session = self.session();
-            self.session().spawn(move |_| {
-                complete_rx.map(move |mut file| {
-                    if let Some(cache) = session.cache() {
-                        cache.save_file(file_id, &mut file);
-                        debug!("File {} complete, saving to cache", file_id);
-                    } else {
-                        debug!("File {} complete", file_id);
-                    }
-                }).or_else(|oneshot::Canceled| Ok(()))
-            });
-        }
+        let session = self.session();
+        self.session().spawn(move |_| {
+            complete_rx.map(move |mut file| {
+                if let Some(cache) = session.cache() {
+                    cache.save_file(file_id, &mut file);
+                    debug!("File {} complete, saving to cache", file_id);
+                } else {
+                    debug!("File {} complete", file_id);
+                }
+            }).or_else(|oneshot::Canceled| Ok(()))
+        });
 
         AudioFileOpen::Streaming(open)
     }
