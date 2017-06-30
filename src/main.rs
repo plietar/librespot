@@ -134,9 +134,10 @@ fn setup(args: &[String]) -> Setup {
 
     let name = matches.opt_str("name").unwrap();
     let device_id = librespot::session::device_id(&name);
+    let use_audio_cache = !matches.opt_present("disable-audio-cache");
 
     let cache = matches.opt_str("c").map(|cache_location| {
-        Cache::new(PathBuf::from(cache_location), !matches.opt_present("disable-audio-cache"))
+        Cache::new(PathBuf::from(cache_location), use_audio_cache)
     });
 
     let cached_credentials = cache.as_ref().and_then(Cache::credentials);
