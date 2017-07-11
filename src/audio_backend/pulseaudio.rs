@@ -12,7 +12,9 @@ impl Open for PulseAudioSink {
         debug!("Using PulseAudio sink");
 
         if device.is_some() {
-            panic!("pulseaudio sink does not support specifying a device name");
+            let sink = device.unwrap().as_ptr();
+        } else {
+            let sink = null()
         }
 
         let ss = pa_sample_spec {
@@ -28,7 +30,7 @@ impl Open for PulseAudioSink {
             pa_simple_new(null(),               // Use the default server.
                           name.as_ptr(),        // Our application's name.
                           PA_STREAM_PLAYBACK,
-                          null(),               // Use the default device.
+                          sink,
                           description.as_ptr(), // Description of our stream.
                           &ss,                  // Our sample format.
                           null(),               // Use default channel map
