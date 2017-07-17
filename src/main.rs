@@ -94,6 +94,7 @@ fn setup(args: &[String]) -> Setup {
         .optflag("v", "verbose", "Enable verbose output")
         .optopt("u", "username", "Username to sign in with", "USERNAME")
         .optopt("p", "password", "Password", "PASSWORD")
+        .optopt("", "discovery-port", "Explicitly set TCP port used for discovery", "PORT")
         .optflag("", "disable-discovery", "Disable discovery mode")
         .optopt("", "backend", "Audio backend to use. Use '?' to list options", "BACKEND")
         .optopt("", "device", "Audio device to use. Use '?' to list options", "DEVICE")
@@ -148,6 +149,7 @@ fn setup(args: &[String]) -> Setup {
                                       cached_credentials);
 
     let enable_discovery = !matches.opt_present("disable-discovery");
+    let discovery_port = matches.opt_str("discovery-port").map(|x| x.parse::<u16>().expect("invalid port"));
 
     let config = Config {
         user_agent: version::version_string(),
@@ -155,6 +157,7 @@ fn setup(args: &[String]) -> Setup {
         bitrate: bitrate,
         onstart: matches.opt_str("onstart"),
         onstop: matches.opt_str("onstop"),
+        discovery_port: discovery_port
     };
 
     let device = matches.opt_str("device");
@@ -220,8 +223,9 @@ impl Main {
     fn discovery(&mut self) {
         let device_id = self.config.device_id.clone();
         let name = self.name.clone();
+        let discovery_port = self.config.discovery_port;
 
-        self.discovery = Some(discovery(&self.handle, name, device_id).unwrap());
+        self.discovery = Some(discovery(&self.handle, name, device_id, discovery_port).unwrap());
     }
 
     fn credentials(&mut self, credentials: Credentials) {
