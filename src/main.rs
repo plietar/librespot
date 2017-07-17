@@ -81,6 +81,7 @@ struct Setup {
     config: Config,
     credentials: Option<Credentials>,
     enable_discovery: bool,
+    devicetype: String,
 }
 
 fn setup(args: &[String]) -> Setup {
@@ -89,6 +90,7 @@ fn setup(args: &[String]) -> Setup {
         .optflag("", "disable-audio-cache", "Disable caching of the audio data.")
         .reqopt("n", "name", "Device name", "NAME")
         .optopt("b", "bitrate", "Bitrate (96, 160 or 320). Defaults to 160", "BITRATE")
+        .optopt("d", "devicetype", "Displayed device type", "DEVICETYPE")
         .optopt("", "onstart", "Run PROGRAM when playback is about to begin.", "PROGRAM")
         .optopt("", "onstop", "Run PROGRAM when playback has ended.", "PROGRAM")
         .optflag("v", "verbose", "Enable verbose output")
@@ -128,6 +130,7 @@ fn setup(args: &[String]) -> Setup {
     let mixer_name = matches.opt_str("mixer");
     let mixer = mixer::find(mixer_name.as_ref())
         .expect("Invalid mixer");
+    let device_type = matches.opt_str("devicetype").unwrap_or_default();
 
     let bitrate = matches.opt_str("b").as_ref()
         .map(|bitrate| Bitrate::from_str(bitrate).expect("Invalid bitrate"))
@@ -168,6 +171,7 @@ fn setup(args: &[String]) -> Setup {
         device: device,
         enable_discovery: enable_discovery,
         mixer: mixer,
+        devicetype: device_type
     }
 }
 
@@ -179,6 +183,7 @@ struct Main {
     device: Option<String>,
     mixer: fn() -> Box<Mixer>,
     handle: Handle,
+    devicetype: String,
 
     discovery: Option<DiscoveryStream>,
     signal: IoStream<()>,
@@ -197,7 +202,8 @@ impl Main {
            cache: Option<Cache>,
            backend: fn(Option<String>) -> Box<Sink>,
            device: Option<String>,
-           mixer: fn() -> Box<Mixer>) -> Main
+           mixer: fn() -> Box<Mixer>,
+           devicetype: String) -> Main
     {
         Main {
             handle: handle.clone(),
@@ -214,6 +220,7 @@ impl Main {
             spirc_task: None,
             shutdown: false,
             signal: tokio_signal::ctrl_c(&handle).flatten_stream().boxed(),
+            devicetype: devicetype,
         }
     }
 
@@ -267,7 +274,7 @@ impl Future for Main {
                     (backend)(device)
                 });
 
-                let (spirc, spirc_task) = Spirc::new(self.name.clone(), session, player, mixer);
+                let (spirc, spirc_task) = Spirc::new(self.name.clone(), session, player, mixer, self.devicetype.clone());
                 self.spirc = Some(spirc);
                 self.spirc_task = Some(spirc_task);
 
@@ -309,9 +316,9 @@ fn main() {
     let handle = core.handle();
 
     let args: Vec<String> = std::env::args().collect();
-    let Setup { name, backend, config, device, cache, enable_discovery, credentials, mixer } = setup(&args);
+    let Setup { name, backend, config, device, cache, enable_discovery, credentials, mixer, devicetype } = setup(&args);
 
-    let mut task = Main::new(handle, name, config, cache, backend, device, mixer);
+    let mut task = Main::new(handle, name, config, cache, backend, device, mixer, devicetype);
     if enable_discovery {
         task.discovery();
     }

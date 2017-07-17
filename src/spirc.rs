@@ -59,7 +59,20 @@ fn initial_state() -> State {
     })
 }
 
-fn initial_device_state(name: String, volume: u16) -> DeviceState {
+fn initial_device_state(name: String, volume: u16, device_type: String) -> DeviceState {
+    let device_type_id = match device_type.as_ref() {
+        "unknown" => 0,
+        "computer" => 1,
+        "tablet" => 2,
+        "smartphone" => 3,
+        "speaker" => 4,
+        "tv" => 5,
+        "avr" => 6,
+        "stb" => 7,
+        "audiodongle" => 8,
+        _ => 5,
+    };
+
     protobuf_init!(DeviceState::new(), {
         sw_version: version::version_string(),
         is_active: false,
@@ -73,7 +86,7 @@ fn initial_device_state(name: String, volume: u16) -> DeviceState {
             },
             @{
                 typ: protocol::spirc::CapabilityType::kDeviceType,
-                intValue => [5]
+                intValue => [device_type_id]
             },
             @{
                 typ: protocol::spirc::CapabilityType::kGaiaEqConnectId,
@@ -118,7 +131,7 @@ fn initial_device_state(name: String, volume: u16) -> DeviceState {
 }
 
 impl Spirc {
-    pub fn new(name: String, session: Session, player: Player, mixer: Box<Mixer>)
+    pub fn new(name: String, session: Session, player: Player, mixer: Box<Mixer>, device: String)
         -> (Spirc, SpircTask)
     {
         debug!("new Spirc[{}]", session.session_id());
@@ -141,7 +154,7 @@ impl Spirc {
         let (cmd_tx, cmd_rx) = mpsc::unbounded();
 
         let volume = 0xFFFF;
-        let device = initial_device_state(name, volume);
+        let device = initial_device_state(name, volume, device);
         mixer.set_volume(volume);
 
         let mut task = SpircTask {
