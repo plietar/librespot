@@ -72,7 +72,7 @@ $ docker build -t librespot-cross -f contrib/Dockerfile .
 ```
 
 The resulting image can be used to build librespot for linux x86_64, armhf (compatible e. g. with Raspberry Pi 2 or 3, but not with Raspberry Pi 1 or Zero) and armel.
-The compiled binaries will be located in /tmp/librespot-build
+The compiled binaries will be located in /tmp/librespot-build/[architecture]/release/
 
 ```
 docker run -v /tmp/librespot-build:/build librespot-cross
@@ -86,6 +86,17 @@ docker run -v /tmp/librespot-build:/build librespot-cross cargo build --release 
 ```
 
 Don't forget to set the `with-tremor` feature flag if your target device does not have floating-point capabilities.
+
+### SELinux
+If you are running docker on a system with SElLnux (RHEL, Centos, Fedora), add `:Z` to the end of the docker volume argument, to ensure the proper SELinux context is inherited by the directory used as a docker volume.
+
+This yields the following commandlines:
+```shell
+docker run -v /tmp/librespot-build:/build:Z librespot-cross
+docker run -v /tmp/librespot-build:/build:Z librespot-cross cargo build --release --no-default-features --features alsa-backend
+docker run -v /tmp/librespot-build:/build:Z librespot-cross cargo build --release --target arm-unknown-linux-gnueabihf --no-default-features --features alsa-backend
+docker run -v /tmp/librespot-build:/build:Z librespot-cross cargo build --release --target arm-unknown-linux-gnueabi --no-default-features --features alsa-backend
+```
 
 ## Development
 When developing *librespot*, it is preferable to use Rust nightly, and build it using the following :
