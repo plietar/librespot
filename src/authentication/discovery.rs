@@ -7,7 +7,6 @@ use futures::sync::mpsc;
 use futures::{Future, Stream, BoxFuture, Poll, Async};
 use hyper::server::{Service, NewService, Request, Response, Http};
 use hyper::{self, Get, Post, StatusCode};
-use mdns;
 use num_bigint::BigUint;
 use rand;
 use std::collections::BTreeMap;
@@ -20,6 +19,12 @@ use url;
 use authentication::Credentials;
 use util;
 use config::ConnectConfig;
+
+#[cfg(feature = "with-rust-mdns")]
+use mdns;
+
+#[cfg(feature = "with-avahi")]
+use dns_sd::DNSService;
 
 #[derive(Clone)]
 struct Discovery(Arc<DiscoveryInner>);
@@ -203,7 +208,10 @@ impl NewService for Discovery {
 
 pub struct DiscoveryStream {
     credentials: mpsc::UnboundedReceiver<Credentials>,
+    #[cfg(feature = "with-rust-mdns")]
     _svc: mdns::Service,
+    #[cfg(feature = "with-avahi")]
+    _svc: DNSService,
     task: Box<Future<Item=(), Error=io::Error>>,
 }
 
@@ -213,7 +221,12 @@ pub fn discovery(handle: &Handle, config: ConnectConfig, device_id: String)
     let (discovery, creds_rx) = Discovery::new(config.clone(), device_id);
 
     let listener = TcpListener::bind(&"0.0.0.0:0".parse().unwrap(), handle)?;
+
+    #[cfg(feature = "with-rust-mdns")]
     let addr = listener.local_addr()?;
+
+    #[cfg(feature = "with-avahi")]
+    let port = listener.local_addr().unwrap().port();
 
     let http = Http::new();
     let handle_ = handle.clone();
@@ -222,12 +235,24 @@ pub fn discovery(handle: &Handle, config: ConnectConfig, device_id: String)
         Ok(())
     }));
 
+    #[cfg(feature = "with-rust-mdns")]
     let responder = mdns::Responder::spawn(&handle)?;
+    
+    #[cfg(feature = "with-rust-mdns")]
     let svc = responder.register(
         "_spotify-connect._tcp".to_owned(),
         config.name,
         addr.port(),
         &["VERSION=1.0", "CPath=/"]);
+
+    #[cfg(feature = "with-avahi")]
+    let svc = DNSService::register(Some(&*device_name),
+                                   "_spotify-connect._tcp",
+                                   None,
+                                   None,
+                                   port,
+                                   &["VERSION=1.0", "CPath=/"])
+                      .unwrap();
 
     Ok(DiscoveryStream {
         credentials: creds_rx,

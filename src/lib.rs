@@ -19,7 +19,6 @@ extern crate crypto;
 extern crate getopts;
 extern crate hyper;
 extern crate linear_map;
-extern crate mdns;
 extern crate num_bigint;
 extern crate num_integer;
 extern crate num_traits;
@@ -50,6 +49,11 @@ extern crate portaudio_rs;
 #[cfg(feature = "libpulse-sys")]
 extern crate libpulse_sys;
 
+#[cfg(feature = "with-rust-mdns")]
+extern crate mdns;
+
+#[cfg(feature = "with-avahi")]
+extern crate dns_sd;
 
 #[macro_use] mod component;
 pub mod album_cover;
