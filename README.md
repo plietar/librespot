@@ -16,6 +16,8 @@ On debian / ubuntu, the following command will install these dependencies :
 sudo apt-get install build-essential portaudio19-dev
 ```
 
+**Note:** For building against the alsa backend additional packages `libogg-dev libvorbis-dev` are needed.
+
 On Fedora systems, the following command will install these dependencies :
 ```shell
 sudo dnf install portaudio-devel make gcc
@@ -54,6 +56,7 @@ target/release/librespot [...] --backend portaudio
 ```
 
 The following backends are currently available :
+
 - ALSA
 - PortAudio 
 - PulseAudio
