@@ -51,6 +51,8 @@ These include the header and length fields.
 ## Encrypted packets
 Every packet after ClientResponsePlaintext is encrypted using a Shannon cipher.
 
+A reference implementation of the Shannon cipher can be found [here](https://github.com/sashahilton00/spotify-connect-resources/tree/master/Shannon-1.0).
+
 The cipher is setup with 4 bytes big endian nonce, incremented after each packet, starting at zero.
 Two independent ciphers and accompanying nonces are used, one for transmission and one for reception,
 using respectively `send_key` and `recv_key` as keys.
