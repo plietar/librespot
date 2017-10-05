@@ -5,6 +5,7 @@
 // TODO: many items from tokio-core::io have been deprecated in favour of tokio-io
 #![allow(deprecated)]
 
+#[macro_use] extern crate cfg_if;
 #[macro_use] extern crate log;
 #[macro_use] extern crate serde_json;
 #[macro_use] extern crate serde_derive;
@@ -13,7 +14,6 @@ extern crate base64;
 extern crate crypto;
 extern crate futures;
 extern crate hyper;
-extern crate mdns;
 extern crate num_bigint;
 extern crate protobuf;
 extern crate rand;
@@ -33,6 +33,16 @@ extern crate portaudio_rs;
 
 #[cfg(feature = "libpulse-sys")]
 extern crate libpulse_sys;
+
+cfg_if! {
+    if #[cfg(feature = "with-internal-mdns")] {
+    	extern crate mdns;
+    } else if #[cfg(feature = "with-external-mdns")] {
+        extern crate dns_sd;
+    } else {
+        extern crate mdns;
+    }
+}
 
 pub mod audio_backend;
 pub mod discovery;

@@ -31,12 +31,14 @@ path = "protocol"
 
 [dependencies]
 base64 = "0.5.0"
+cfg-if = "0.1.2"
+dns-sd = { version  = "~0.1.3", optional = true }
 env_logger = "0.4.0"
 futures = "0.1.8"
 getopts = "0.2.14"
 hyper = "0.11.2"
 log = "0.3.5"
-mdns = { git = "https://github.com/plietar/rust-mdns" }
+mdns = { git = "https://github.com/plietar/rust-mdns", optional = true }
 num-bigint = "0.1.35"
 protobuf = "1.1"
 rand = "0.3.13"
@@ -66,7 +68,10 @@ pulseaudio-backend = ["libpulse-sys"]
 with-tremor = ["librespot-audio/with-tremor"]
 with-lewton = ["librespot-audio/with-lewton"]
 
-default = ["portaudio-backend"]
+with-internal-mdns = ["mdns"]
+with-external-mdns = ["dns-sd"]
+
+default = ["portaudio-backend", "with-internal-mdns"]
 
 [package.metadata.deb]
 maintainer = "nobody"

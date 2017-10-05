@@ -66,6 +66,11 @@ The following backends are currently available :
 - PortAudio 
 - PulseAudio
 
+## mdns - Internal or External
+*librespot* allows for the use of external avahi mdns. Internal or External mdns can be specified at compile time using
+`--feature "with-internal-mdns"` or `--feature "with-external-mdns"` respectively. The internal mdns is used by default if none is specified. Currently, it is not possible to build without mdns.
+`libavahi-compat-libdnssd-dev` must be installed to compile with-external-mdns.
+
 ## Cross-compiling
 A cross compilation environment is provided as a docker image.
 Build the image from the root of the project with the following command :

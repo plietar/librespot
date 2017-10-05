@@ -4,6 +4,8 @@
 #
 # The resulting image can be used to build librespot for linux x86_64, armhf and armel.
 # $ docker run -v /tmp/librespot-build:/build librespot-cross
+# To build librespot with avahi support
+# $ docker run -v /tmp/librespot-build:/build librespot-cross /src/contrib/docker-build-avahi.sh
 #
 # The compiled binaries will be located in /tmp/librespot-build
 #
@@ -23,6 +25,7 @@ RUN apt-get update
 
 RUN apt-get install -y curl git build-essential crossbuild-essential-arm64 crossbuild-essential-armel crossbuild-essential-armhf crossbuild-essential-mipsel
 RUN apt-get install -y libasound2-dev libasound2-dev:arm64 libasound2-dev:armel libasound2-dev:armhf libasound2-dev:mipsel
+RUN apt-get install -y libavahi-compat-libdnssd-dev libavahi-compat-libdnssd-dev:arm64 libavahi-compat-libdnssd-dev:armel libavahi-compat-libdnssd-dev:armhf libavahi-compat-libdnssd-dev:mipsel
 
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
 ENV PATH="/root/.cargo/bin/:${PATH}"
