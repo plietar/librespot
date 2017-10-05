@@ -523,11 +523,13 @@ impl SpircTask {
         let current_index = self.state.get_playing_track_index();
         let new_index = (current_index + 1) % (self.state.get_track().len() as u32);
 
+        let was_last_track = current_index + 1 >= self.state.get_track().len() as u32;
+
         self.state.set_playing_track_index(new_index);
         self.state.set_position_ms(0);
         self.state.set_position_measured_at(now_ms() as u64);
 
-        self.load_track(true);
+        self.load_track(!was_last_track);
         self.notify(None);
     }
 
