@@ -1,5 +1,5 @@
 pub trait Mixer : Send {
-    fn open() -> Self where Self: Sized;
+    fn open(Option<String>) -> Self where Self: Sized;
     fn start(&self);
     fn stop(&self);
     fn set_volume(&self, volume: u16);
@@ -16,13 +16,20 @@ pub trait AudioFilter {
 pub mod softmixer;
 use self::softmixer::SoftMixer;
 
-fn mk_sink<M: Mixer + 'static>() -> Box<Mixer> {
-    Box::new(M::open())
+#[cfg(feature = "alsa-backend")]
+pub mod alsamixer;
+#[cfg(feature = "alsa-backend")]
+use self::alsamixer::AlsaMixer;
+
+fn mk_sink<M: Mixer + 'static>(device: Option<String>) -> Box<Mixer> {
+    Box::new(M::open(device))
 }
 
-pub fn find<T: AsRef<str>>(name: Option<T>) -> Option<fn() -> Box<Mixer>> {
+pub fn find<T: AsRef<str>>(name: Option<T>) -> Option<fn(Option<String>) -> Box<Mixer>> {
     match name.as_ref().map(AsRef::as_ref) {
         None | Some("softvol") => Some(mk_sink::<SoftMixer>),
+        #[cfg(feature = "alsa-backend")]
+        Some("alsa") => Some(mk_sink::<AlsaMixer>),
         _ => None,
     }
 }

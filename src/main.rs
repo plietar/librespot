@@ -75,7 +75,7 @@ struct Setup {
     backend: fn(Option<String>) -> Box<Sink>,
     device: Option<String>,
 
-    mixer: fn() -> Box<Mixer>,
+    mixer: fn(Option<String>) -> Box<Mixer>,
 
     cache: Option<Cache>,
     player_config: PlayerConfig,
@@ -205,7 +205,7 @@ struct Main {
     connect_config: ConnectConfig,
     backend: fn(Option<String>) -> Box<Sink>,
     device: Option<String>,
-    mixer: fn() -> Box<Mixer>,
+    mixer: fn(Option<String>) -> Box<Mixer>,
     handle: Handle,
 
     discovery: Option<DiscoveryStream>,
@@ -219,8 +219,14 @@ struct Main {
 }
 
 impl Main {
-    fn new(handle: Handle, setup: Setup) -> Main {
-        let mut task = Main {
+    fn new(handle: Handle,
+           config: Config,
+           cache: Option<Cache>,
+           backend: fn(Option<String>) -> Box<Sink>,
+           device: Option<String>,
+           mixer: fn(Option<String>) -> Box<Mixer>) -> Main
+    {
+        Main {
             handle: handle.clone(),
             cache: setup.cache,
             session_config: setup.session_config,
@@ -287,13 +293,13 @@ impl Future for Main {
             if let Async::Ready(session) = self.connect.poll().unwrap() {
                 self.connect = Box::new(futures::future::empty());
                 let device = self.device.clone();
-                let mixer = (self.mixer)();
-                let player_config = self.player_config.clone();
-                let connect_config = self.connect_config.clone();
+
+                let mixer = (self.mixer)(device);
 
                 let audio_filter = mixer.get_audio_filter();
                 let backend = self.backend;
-                let player = Player::new(player_config, session.clone(), audio_filter, move || {
+                let device = self.device.clone();
+                let player = Player::new(session.clone(), audio_filter, move || {
                     (backend)(device)
                 });
 
