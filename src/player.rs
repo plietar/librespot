@@ -13,7 +13,7 @@ use core::util::{self, SpotifyId, Subfile};
 use audio_backend::Sink;
 use audio::{AudioFile, AudioDecrypt};
 use audio::{VorbisDecoder, VorbisPacket};
-use metadata::{FileFormat, Track, Metadata};
+use metadata::{Artist, FileFormat, Track, Metadata};
 use mixer::AudioFilter;
 
 #[derive(Clone)]
@@ -383,6 +383,12 @@ impl PlayerInternal {
         }
 
         info!("Track \"{}\" loaded", track.name);
+
+	let artist = Artist::get(&self.session, track.artists[0]).wait().unwrap();
+
+	// Send metatada in json (metadata:<json>) for simple parsinge
+	// and extensibility
+        info!("metadata:{{\"ARTIST\":\"{}\",\"TITLE\":\"{}\"}}", artist.name, track.name);
 
         Some(decoder)
     }
