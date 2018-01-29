@@ -6,11 +6,9 @@ which are not available in the official library.
 
 Note: librespot only works with Spotify Premium.
 
-# Unmaintained
-Unfortunately I am unable to maintain librespot anymore. It should still work,
-but issues and Pull requests will be ignored. Feel free to fork it and continue
-development there. If a fork gains traction I will happily point to it from the
-README.
+# Project Moved
+
+The development on this repo has ceased, but the project is being continually developed in the repo located here: https://github.com/librespot-org/librespot, head on over there for the latest version. **Pull Requests and Issues on this repo will be ignored.** Please file them on the new repo.
 
 ## Building
 Rust 1.17.0 or later is required to build librespot.
