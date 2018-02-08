@@ -5,6 +5,7 @@ use std::mem;
 use std::sync::mpsc::{RecvError, TryRecvError};
 use std::thread;
 use std;
+use std::io::{Read, Error, ErrorKind, Seek, SeekFrom};
 
 use core::config::{Bitrate, PlayerConfig};
 use core::session::Session;
@@ -18,6 +19,7 @@ use mixer::AudioFilter;
 
 #[derive(Clone)]
 pub struct Player {
+    session: Session,
     commands: std::sync::mpsc::Sender<PlayerCommand>,
 }
 
@@ -46,12 +48,13 @@ impl Player {
         where F: FnOnce() -> Box<Sink> + Send + 'static
     {
         let (cmd_tx, cmd_rx) = std::sync::mpsc::channel();
+        let session_internal = session.clone();
 
         thread::spawn(move || {
-            debug!("new Player[{}]", session.session_id());
+            debug!("new Player[{}]", session_internal.session_id());
 
             let internal = PlayerInternal {
-                session: session,
+                session: session_internal,
                 config: config,
                 commands: cmd_rx,
 
@@ -64,6 +67,7 @@ impl Player {
         });
 
         Player {
+            session: session,
             commands: cmd_tx,
         }
     }
@@ -96,9 +100,50 @@ impl Player {
     pub fn seek(&self, position_ms: u32) {
         self.command(PlayerCommand::Seek(position_ms));
     }
+
+    pub fn fetch_audio_file(&self, track_id: SpotifyId, format: FileFormat) -> oneshot::Receiver<Result<Vec<u8>, Error>> {
+        //TODO: I would actually like receiving this as a stream of chunks (64-512kB per chunk)
+        fn do_fetch(session: &Session, track_id: SpotifyId, format: FileFormat) -> Result<Vec<u8>, Error> {
+            let mut audio_file = match get_track_file(&session, track_id, format) {
+                Some(data) => data,
+                None => {
+                    return Err(Error::new(ErrorKind::Other, format!("Cannot find file for track {:?} encoded as {:?}", track_id, format)));
+                }
+            };
+            let file_len: u64 = audio_file.seek(SeekFrom::End(0)).unwrap();
+            audio_file.seek(SeekFrom::Start(0)).unwrap();
+
+            let mut full_buffer = Vec::with_capacity(file_len as usize);
+            let mut buf = [0; 256*750];
+            let mut tot: u64 = 0;
+            loop {
+                let n = audio_file.read(&mut buf).unwrap();
+                if n == 0 {
+                    break;
+                }
+                tot += n as u64;
+                full_buffer.extend_from_slice(&buf[..n]);
+            }
+            if tot != file_len {
+                return Err(Error::new(ErrorKind::Other, format!("File size mismatch: Expected {}, got {}", file_len, tot)));
+            }
+            Ok(full_buffer)
+        }
+
+        let (blob_tx, blob_rx) = oneshot::channel();
+        let session = self.session.clone();
+        thread::spawn(move || {
+            let ret = do_fetch(&session, track_id, format);
+            blob_tx.send(ret).unwrap();
+        });
+
+        blob_rx
+    }
+
 }
 
-type Decoder = VorbisDecoder<Subfile<AudioDecrypt<AudioFile>>>;
+type DecryptedFile = AudioDecrypt<AudioFile>;
+type Decoder = VorbisDecoder<Subfile<DecryptedFile>>;
 enum PlayerState {
     Stopped,
     Paused {
@@ -328,53 +373,21 @@ impl PlayerInternal {
         }
     }
 
-    fn find_available_alternative<'a>(&self, track: &'a Track) -> Option<Cow<'a, Track>> {
-        if track.available {
-            Some(Cow::Borrowed(track))
-        } else {
-            let alternatives = track.alternatives
-                .iter()
-                .map(|alt_id| {
-                    Track::get(&self.session, *alt_id)
-                });
-            let alternatives = future::join_all(alternatives).wait().unwrap();
-
-            alternatives.into_iter().find(|alt| alt.available).map(Cow::Owned)
-        }
-    }
-
     fn load_track(&self, track_id: SpotifyId, position: i64) -> Option<Decoder> {
-        let track = Track::get(&self.session, track_id).wait().unwrap();
-
-        info!("Loading track \"{}\"", track.name);
-
-        let track = match self.find_available_alternative(&track) {
-            Some(track) => track,
-            None => {
-                warn!("Track \"{}\" is not available", track.name);
-                return None;
-            }
-        };
-
         let format = match self.config.bitrate {
             Bitrate::Bitrate96 => FileFormat::OGG_VORBIS_96,
             Bitrate::Bitrate160 => FileFormat::OGG_VORBIS_160,
             Bitrate::Bitrate320 => FileFormat::OGG_VORBIS_320,
         };
 
-        let file_id = match track.files.get(&format) {
-            Some(&file_id) => file_id,
+        let decrypted_file = match get_track_file(&self.session, track_id, format) {
+            Some(data) => data,
             None => {
-                warn!("Track \"{}\" is not available in format {:?}", track.name, format);
                 return None;
             }
         };
 
-        let key = self.session.audio_key().request(track.id, file_id).wait().unwrap();
-
-        let encrypted_file = AudioFile::open(&self.session, file_id).wait().unwrap();
-        let audio_file = Subfile::new(AudioDecrypt::new(key, encrypted_file), 0xa7);
-
+        let audio_file = Subfile::new(decrypted_file, 0xa7);
         let mut decoder = VorbisDecoder::new(audio_file).unwrap();
 
         match decoder.seek(position) {
@@ -382,7 +395,7 @@ impl PlayerInternal {
             Err(err) => error!("Vorbis error: {:?}", err),
         }
 
-        info!("Track \"{}\" loaded", track.name);
+        info!("Track \"{:?}\" loaded", track_id);
 
         Some(decoder)
     }
@@ -419,5 +432,43 @@ impl ::std::fmt::Debug for PlayerCommand {
                  .finish()
             }
         }
+    }
+}
+
+fn get_track_file(session: &Session, track_id: SpotifyId, format: FileFormat) -> Option<DecryptedFile> {
+    let track = Track::get(&session, track_id).wait().unwrap();
+    let track = match find_available_track_alternative(&session, &track) {
+        Some(track) => track,
+        None => {
+            println!("Track \"{}\" is not available", track.name);
+            return None;
+        }
+    };
+
+    let file_id = match track.files.get(&format) {
+        Some(&file_id) => file_id,
+        None => {
+            println!("Track \"{}\" is not available in format {:?}", track.name, format);
+            return None;
+        }
+    };
+    let key = session.audio_key().request(track.id, file_id).wait().unwrap();
+    let encrypted_file = AudioFile::open(&session, file_id).wait().unwrap();
+    Some(AudioDecrypt::new(key, encrypted_file))
+}
+
+
+fn find_available_track_alternative<'a>(session: &Session, track: &'a Track) -> Option<Cow<'a, Track>> {
+    if track.available {
+        Some(Cow::Borrowed(track))
+    } else {
+        let alternatives = track.alternatives
+            .iter()
+            .map(|alt_id| {
+                Track::get(&session, *alt_id)
+            });
+        let alternatives = future::join_all(alternatives).wait().unwrap();
+
+        alternatives.into_iter().find(|alt| alt.available).map(Cow::Owned)
     }
 }
