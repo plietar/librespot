@@ -63,7 +63,7 @@ pulseaudio-backend = ["libpulse-sys"]
 with-tremor = ["librespot-audio/with-tremor"]
 with-lewton = ["librespot-audio/with-lewton"]
 
-default = ["portaudio-backend"]
+default = []
 
 [package.metadata.deb]
 maintainer = "nobody"
