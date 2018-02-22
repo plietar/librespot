@@ -7,7 +7,6 @@ use crypto::hmac::Hmac;
 use crypto::pbkdf2::pbkdf2;
 use crypto::sha1::Sha1;
 use protobuf::ProtobufEnum;
-use rpassword;
 use serde;
 use serde_json;
 use std::io::{self, stderr, Read, Write};
@@ -181,16 +180,11 @@ pub fn get_credentials(username: Option<String>, password: Option<String>,
         (Some(ref username), _, Some(ref credentials))
             if *username == credentials.username => Some(credentials.clone()),
 
-        (Some(username), None, _) => {
-            write!(stderr(), "Password for {}: ", username).unwrap();
-            stderr().flush().unwrap();
-            let password = rpassword::read_password().unwrap();
-            Some(Credentials::with_password(username.clone(), password))
-        }
-
         (None, _, Some(credentials))
             => Some(credentials),
 
         (None, _, None) => None,
+
+        (Some(username), None, _) => None,
     }
 }

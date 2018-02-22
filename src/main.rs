@@ -7,7 +7,6 @@ extern crate futures;
 extern crate getopts;
 extern crate librespot;
 extern crate tokio_core;
-extern crate tokio_signal;
 
 use env_logger::LogBuilder;
 use futures::{Future, Async, Poll, Stream};
@@ -27,7 +26,6 @@ use librespot::core::session::Session;
 use librespot::core::version;
 
 use librespot::audio_backend::{self, Sink, BACKENDS};
-use librespot::discovery::{discovery, DiscoveryStream};
 use librespot::mixer::{self, Mixer};
 use librespot::player::Player;
 use librespot::spirc::{Spirc, SpircTask};
@@ -82,7 +80,6 @@ struct Setup {
     session_config: SessionConfig,
     connect_config: ConnectConfig,
     credentials: Option<Credentials>,
-    enable_discovery: bool,
 }
 
 fn setup(args: &[String]) -> Setup {
@@ -97,7 +94,6 @@ fn setup(args: &[String]) -> Setup {
         .optflag("v", "verbose", "Enable verbose output")
         .optopt("u", "username", "Username to sign in with", "USERNAME")
         .optopt("p", "password", "Password", "PASSWORD")
-        .optflag("", "disable-discovery", "Disable discovery mode")
         .optopt("", "backend", "Audio backend to use. Use '?' to list options", "BACKEND")
         .optopt("", "device", "Audio device to use. Use '?' to list options", "DEVICE")
         .optopt("", "mixer", "Mixer to use", "MIXER");
@@ -183,8 +179,6 @@ fn setup(args: &[String]) -> Setup {
         }
     };
 
-    let enable_discovery = !matches.opt_present("disable-discovery");
-
     Setup {
         backend: backend,
         cache: cache,
@@ -193,7 +187,6 @@ fn setup(args: &[String]) -> Setup {
         connect_config: connect_config,
         credentials: credentials,
         device: device,
-        enable_discovery: enable_discovery,
         mixer: mixer,
     }
 }
@@ -207,9 +200,6 @@ struct Main {
     device: Option<String>,
     mixer: fn() -> Box<Mixer>,
     handle: Handle,
-
-    discovery: Option<DiscoveryStream>,
-    signal: IoStream<()>,
 
     spirc: Option<Spirc>,
     spirc_task: Option<SpircTask>,
@@ -231,19 +221,10 @@ impl Main {
             mixer: setup.mixer,
 
             connect: Box::new(futures::future::empty()),
-            discovery: None,
             spirc: None,
             spirc_task: None,
             shutdown: false,
-            signal: tokio_signal::ctrl_c(&handle).flatten_stream().boxed(),
         };
-
-        if setup.enable_discovery {
-            let config = task.connect_config.clone();
-            let device_id = task.session_config.device_id.clone();
-
-            task.discovery = Some(discovery(&handle, config, device_id).unwrap());
-        }
 
         if let Some(credentials) = setup.credentials {
             task.credentials(credentials);
@@ -275,14 +256,14 @@ impl Future for Main {
         loop {
             let mut progress = false;
 
-            if let Some(Async::Ready(Some(creds))) = self.discovery.as_mut().map(|d| d.poll().unwrap()) {
-                if let Some(ref spirc) = self.spirc {
-                    spirc.shutdown();
-                }
-                self.credentials(creds);
+//            if let Some(Async::Ready(Some(creds))) = self.discovery.as_mut().map(|d| d.poll().unwrap()) {
+//                if let Some(ref spirc) = self.spirc {
+//                    spirc.shutdown();
+//                }
+//                self.credentials(creds);
 
-                progress = true;
-            }
+//                progress = true;
+//            }
 
             if let Async::Ready(session) = self.connect.poll().unwrap() {
                 self.connect = Box::new(futures::future::empty());
@@ -300,19 +281,6 @@ impl Future for Main {
                 let (spirc, spirc_task) = Spirc::new(connect_config, session, player, mixer);
                 self.spirc = Some(spirc);
                 self.spirc_task = Some(spirc_task);
-
-                progress = true;
-            }
-
-            if let Async::Ready(Some(())) = self.signal.poll().unwrap() {
-                if !self.shutdown {
-                    if let Some(ref spirc) = self.spirc {
-                        spirc.shutdown();
-                    }
-                    self.shutdown = true;
-                } else {
-                    return Ok(Async::Ready(()));
-                }
 
                 progress = true;
             }

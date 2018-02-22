@@ -36,17 +36,14 @@ futures = "0.1.8"
 getopts = "0.2.14"
 hyper = "0.11.2"
 log = "0.3.5"
-mdns = { git = "https://github.com/plietar/rust-mdns" }
 num-bigint = "0.1.35"
 protobuf = "1.1"
 rand = "0.3.13"
-rpassword = "0.3.0"
 rust-crypto = { git = "https://github.com/awmath/rust-crypto.git", branch = "avx2" }
 serde = "0.9.6"
 serde_derive = "0.9.6"
 serde_json = "0.9.5"
 tokio-core = "0.1.2"
-tokio-signal = "0.1.2"
 url = "1.3"
 
 alsa            = { git = "https://github.com/plietar/rust-alsa", optional = true }

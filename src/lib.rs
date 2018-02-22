@@ -13,7 +13,6 @@ extern crate base64;
 extern crate crypto;
 extern crate futures;
 extern crate hyper;
-extern crate mdns;
 extern crate num_bigint;
 extern crate protobuf;
 extern crate rand;
@@ -35,7 +34,6 @@ extern crate portaudio_rs;
 extern crate libpulse_sys;
 
 pub mod audio_backend;
-pub mod discovery;
 pub mod keymaster;
 pub mod mixer;
 pub mod player;
