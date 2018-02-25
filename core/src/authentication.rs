@@ -63,7 +63,7 @@ impl Credentials {
             Ok(data)
         }
 
-        let encrypted_blob = base64::decode(encrypted_blob).unwrap();
+        let encrypted_blob = base64::decode(encrypted_blob).expect("decrypted blob");
 
         let secret = {
             let mut data = [0u8; 20];
@@ -94,7 +94,7 @@ impl Credentials {
             cipher.decrypt(&mut crypto::buffer::RefReadBuffer::new(&encrypted_blob),
                            &mut crypto::buffer::RefWriteBuffer::new(&mut data),
                            true)
-                  .unwrap();
+                  .expect("cypher decrypt");
 
             let l = encrypted_blob.len();
             for i in 0..l - 0x10 {
@@ -105,13 +105,13 @@ impl Credentials {
         };
 
         let mut cursor = io::Cursor::new(&blob);
-        read_u8(&mut cursor).unwrap();
-        read_bytes(&mut cursor).unwrap();
-        read_u8(&mut cursor).unwrap();
-        let auth_type = read_int(&mut cursor).unwrap();
-        let auth_type = AuthenticationType::from_i32(auth_type as i32).unwrap();
-        read_u8(&mut cursor).unwrap();
-        let auth_data = read_bytes(&mut cursor).unwrap();;
+        read_u8(&mut cursor).expect("read from io::Cursor");
+        read_bytes(&mut cursor).expect("read from io::Cursor");
+        read_u8(&mut cursor).expect("read from io::Cursor");
+        let auth_type = read_int(&mut cursor).expect("read from io::Cursor");
+        let auth_type = AuthenticationType::from_i32(auth_type as i32).expect("auth type");
+        read_u8(&mut cursor).expect("read from io::Cursor");
+        let auth_data = read_bytes(&mut cursor).expect("read from io::Cursor");
 
         Credentials {
             username: username,
@@ -122,9 +122,9 @@ impl Credentials {
 
     pub fn from_reader<R: Read>(mut reader: R) -> Credentials {
         let mut contents = String::new();
-        reader.read_to_string(&mut contents).unwrap();
+        reader.read_to_string(&mut contents).expect("read to string");
 
-        serde_json::from_str(&contents).unwrap()
+        serde_json::from_str(&contents).expect("from string to json")
     }
 
     pub fn from_file<P: AsRef<Path>>(path: P) -> Option<Credentials> {
@@ -132,12 +132,12 @@ impl Credentials {
     }
 
     pub fn save_to_writer<W: Write>(&self, writer: &mut W) {
-        let contents = serde_json::to_string(&self.clone()).unwrap();
-        writer.write_all(contents.as_bytes()).unwrap();
+        let contents = serde_json::to_string(&self.clone()).expect("to json string");
+        writer.write_all(contents.as_bytes()).expect("json contents written");
     }
 
     pub fn save_to_file<P: AsRef<Path>>(&self, path: P) {
-        let mut file = File::create(path).unwrap();
+        let mut file = File::create(path).expect("created file");
         self.save_to_writer(&mut file)
     }
 }

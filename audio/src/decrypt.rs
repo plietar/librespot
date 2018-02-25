@@ -44,7 +44,7 @@ impl<T: io::Read + io::Seek> io::Seek for AudioDecrypt<T> {
         let skip = newpos % 16;
 
         let iv = BigUint::from_bytes_be(AUDIO_AESIV)
-                     .add(BigUint::from_u64(newpos / 16).unwrap())
+                     .add(BigUint::from_u64(newpos / 16).expect("Seek position over 16"))
                      .to_bytes_be();
         self.cipher = aes::ctr(aes::KeySize::KeySize128, &self.key.0, &iv);
 

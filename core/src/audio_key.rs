@@ -58,10 +58,10 @@ impl AudioKeyManager {
 
     fn send_key_request(&self, seq: u32, track: SpotifyId, file: FileId) {
         let mut data: Vec<u8> = Vec::new();
-        data.write(&file.0).unwrap();
-        data.write(&track.to_raw()).unwrap();
-        data.write_u32::<BigEndian>(seq).unwrap();
-        data.write_u16::<BigEndian>(0x0000).unwrap();
+        data.write(&file.0).expect("data writing send_key_request");
+        data.write(&track.to_raw()).expect("data writing send_key_request");
+        data.write_u32::<BigEndian>(seq).expect("data writing send_key_request");
+        data.write_u16::<BigEndian>(0x0000).expect("data writing send_key_request");
 
         self.session().send_packet(0xc, data)
     }
@@ -81,4 +81,3 @@ impl <T> Future for AudioKeyFuture<T> {
         }
     }
 }
-

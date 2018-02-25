@@ -8,4 +8,4 @@
 export TARGET_AR=/home/mat/Android/Sdk/ndk-standalone-x86/bin/i686-linux-android-ar
 export TARGET_CC=/home/mat/Android/Sdk/ndk-standalone-x86/bin/i686-linux-android-clang
 
-cargo build --target=i686-linux-android
+cargo build --target=i686-linux-android --release

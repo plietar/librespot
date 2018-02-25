@@ -9,7 +9,7 @@ pub struct StdoutSink(Box<Write>);
 impl Open for StdoutSink {
     fn open(path: Option<String>) -> StdoutSink {
         if let Some(path) = path {
-            let file = OpenOptions::new().write(true).open(path).unwrap();
+            let file = OpenOptions::new().write(true).open(path).expect("opened file for writing");
             StdoutSink(Box::new(file))
         } else {
             StdoutSink(Box::new(io::stdout()))
@@ -37,4 +37,3 @@ impl Sink for StdoutSink {
         Ok(())
     }
 }
-
