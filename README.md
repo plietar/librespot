@@ -1,3 +1,6 @@
+[![Build Status](https://travis-ci.org/librespot-org/librespot.svg?branch=master)](https://travis-ci.org/librespot-org/librespot)
+[![Gitter chat](https://badges.gitter.im/librespot-org/librespot.png)](https://gitter.im/librespot-org/spotify-connect-resources)
+
 # This version
 Compiles for Android by not allowed password reading at the command line and not using discovey on local networks.
 
@@ -7,18 +10,30 @@ applications to use Spotify's service, without using the official but
 closed-source libspotify. Additionally, it will provide extra features
 which are not available in the official library.
 
-Note: librespot only works with Spotify Premium.
+Note: librespot only works with Spotify Premium
 
-# Unmaintained
-Unfortunately I am unable to maintain librespot anymore. It should still work,
-but issues and Pull requests will be ignored. Feel free to fork it and continue
-development there. If a fork gains traction I will happily point to it from the
-README.
+## This fork
+As the origin by [plietar](https://github.com/plietar/) is no longer actively maintained, this organisation and repository have been set up so that the project may be maintained and upgraded in the future.
 
-## Building
-Rust 1.17.0 or later is required to build librespot.
+# Documentation
+Documentation is currently a work in progress. 
 
-**If you are building librespot on macOS, the homebrew provided rust may fail due to the way in which homebrew installs rust. In this case, uninstall the homebrew version of rust and use [rustup](https://www.rustup.rs/), and librespot should then build.**
+There is some brief documentation on how the protocol works in the [docs](https://github.com/librespot-org/librespot/tree/master/docs) folder, and more general usage and compilation information is available on the [wiki](https://github.com/librespot-org/librespot/wiki). 
+
+[CONTRIBUTING.md](https://github.com/librespot-org/librespot/blob/master/CONTRIBUTING.md) also contains detailed instructions on setting up a development environment, compilation, and contributing guidelines. 
+
+If you wish to learn more about how librespot works overall, the best way is to simply read the code, and ask any questions you have in the Gitter chat linked above.
+
+# Issues
+
+If you run into a bug when using librespot, please search the existing issues before opening a new one. Chances are, we've encountered it before, and have provided a resolution. If not, please open a new one, and where possible, include the backtrace librespot generates on crashing, along with anything we can use to reproduce the issue, eg. the Spotify URI of the song that caused the crash.
+
+# Building
+Rust 1.20.0 or later is required to build librespot.
+
+**If you are building librespot on macOS, the homebrew provided rust may fail due to the way in which homebrew installs rust. In this case, uninstall the homebrew version of rust and use [rustup](https://www.rustup.rs/), and librespot should then build. This should have been fixed in more recent versions of Homebrew, but we're leaving this notice here as a warning.**
+
+**We strongly suggest you install rust using rustup, for ease of installation and maintenance.**
 
 It also requires a C, with portaudio.
 
@@ -46,68 +61,33 @@ cargo build --release
 A sample program implementing a headless Spotify Connect receiver is provided.
 Once you've built *librespot*, run it using :
 ```shell
-target/release/librespot --username USERNAME --cache CACHEDIR --name DEVICENAME
+target/release/librespot --name DEVICENAME 
 ```
 
-## Discovery mode
-*librespot* can be run in discovery mode, in which case no password is required at startup.
-For that, simply omit the `--username` argument.
-
-## Audio Backends
-*librespot* supports various audio backends. Multiple backends can be enabled at compile time by enabling the
-corresponding cargo feature. By default, only PortAudio is enabled.
-
-A specific backend can selected at runtime using the `--backend` switch.
-
+The above is a minimal example. Here is a more fully fledged one:
 ```shell
-cargo build --features portaudio-backend
-target/release/librespot [...] --backend portaudio
+target/release/librespot -n "Librespot" -b 320 -c ./cache --enable-volume-normalisation --initial-volume 75 --device-type avr
 ```
+The above command will create a receiver named ```Librespot```, with bitrate set to 320kbps, initial volume at 75%, with volume normalisation enabled, and the device displayed in the app as an Audio/Video Receiver. A folder named ```cache``` will be created/used in the current directory, and be used to cache audio data and credentials.
 
-The following backends are currently available :
-- ALSA
-- PortAudio
-- PulseAudio
+A full list of runtime options are available [here](https://github.com/librespot-org/librespot/wiki/Options)
 
-## Cross-compiling
-A cross compilation environment is provided as a docker image.
-Build the image from the root of the project with the following command :
-
-```
-$ docker build -t librespot-cross -f contrib/Dockerfile .
-```
-
-The resulting image can be used to build librespot for linux x86_64, armhf (compatible e. g. with Raspberry Pi 2 or 3, but not with Raspberry Pi 1 or Zero) and armel.
-The compiled binaries will be located in /tmp/librespot-build
-
-```
-docker run -v /tmp/librespot-build:/build librespot-cross
-```
-
-If only one architecture is desired, cargo can be invoked directly with the appropriate options :
-```shell
-docker run -v /tmp/librespot-build:/build librespot-cross cargo build --release --no-default-features --features alsa-backend
-docker run -v /tmp/librespot-build:/build librespot-cross cargo build --release --target arm-unknown-linux-gnueabihf --no-default-features --features alsa-backend
-docker run -v /tmp/librespot-build:/build librespot-cross cargo build --release --target arm-unknown-linux-gnueabi --no-default-features --features alsa-backend
-```
-
-Don't forget to set the `with-tremor` feature flag if your target device does not have floating-point capabilities.
-
-## Development
-When developing *librespot*, it is preferable to use Rust nightly, and build it using the following :
-```shell
-cargo build --no-default-features --features "nightly portaudio-backend"
-```
-
-This produces better compilation error messages than with the default configuration.
+## Contact
+Come and hang out on gitter if you need help or want to offer some.
+https://gitter.im/librespot-org/spotify-connect-resources
 
 ## Disclaimer
 Using this code to connect to Spotify's API is probably forbidden by them.
 Use at your own risk.
 
-## Contact
-Come and hang out on gitter if you need help or want to offer some.
-https://gitter.im/sashahilton00/spotify-connect-resources
-
 ## License
 Everything in this repository is licensed under the MIT license.
+
+## Related Projects
+This is a non exhaustive list of projects that either use or have modified librespot. If you'd like to include yours, submit a PR.
+
+- [librespot-golang](https://github.com/librespot-org/librespot-golang) - A golang port of librespot.
+- [plugin.audio.spotify](https://github.com/marcelveldt/plugin.audio.spotify) - A Kodi plugin for Spotify.
+- [raspotify](https://github.com/dtcooper/raspotify) - Spotify Connect client for the Raspberry Pi that Just Works™
+- [Spotifyd](https://github.com/Spotifyd/spotifyd) - A stripped down librespot UNIX daemon.
+- [Spotcontrol](https://github.com/badfortrains/spotcontrol) - A golang implementation of a Spotify Connect controller. No playback functionality.

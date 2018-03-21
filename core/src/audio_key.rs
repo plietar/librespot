@@ -1,17 +1,17 @@
 use byteorder::{BigEndian, ByteOrder, WriteBytesExt};
-use futures::sync::oneshot;
+use bytes::Bytes;
 use futures::{Async, Future, Poll};
+use futures::sync::oneshot;
 use std::collections::HashMap;
 use std::io::Write;
-use tokio_core::io::EasyBuf;
 
+use spotify_id::{FileId, SpotifyId};
 use util::SeqGenerator;
-use util::{SpotifyId, FileId};
 
-#[derive(Debug,Hash,PartialEq,Eq,Copy,Clone)]
+#[derive(Debug, Hash, PartialEq, Eq, Copy, Clone)]
 pub struct AudioKey(pub [u8; 16]);
 
-#[derive(Debug,Hash,PartialEq,Eq,Copy,Clone)]
+#[derive(Debug, Hash, PartialEq, Eq, Copy, Clone)]
 pub struct AudioKeyError;
 
 component! {
@@ -22,8 +22,8 @@ component! {
 }
 
 impl AudioKeyManager {
-    pub fn dispatch(&self, cmd: u8, mut data: EasyBuf) {
-        let seq = BigEndian::read_u32(data.drain_to(4).as_ref());
+    pub(crate) fn dispatch(&self, cmd: u8, mut data: Bytes) {
+        let seq = BigEndian::read_u32(data.split_to(4).as_ref());
 
         let sender = self.lock(|inner| inner.pending.remove(&seq));
 
@@ -32,11 +32,15 @@ impl AudioKeyManager {
                 0xd => {
                     let mut key = [0u8; 16];
                     key.copy_from_slice(data.as_ref());
-                    sender.complete(Ok(AudioKey(key)));
+                    let _ = sender.send(Ok(AudioKey(key)));
                 }
                 0xe => {
-                    warn!("error audio key {:x} {:x}", data.as_ref()[0], data.as_ref()[1]);
-                    sender.complete(Err(AudioKeyError));
+                    warn!(
+                        "error audio key {:x} {:x}",
+                        data.as_ref()[0],
+                        data.as_ref()[1]
+                    );
+                    let _ = sender.send(Err(AudioKeyError));
                 }
                 _ => (),
             }
@@ -68,7 +72,7 @@ impl AudioKeyManager {
 }
 
 pub struct AudioKeyFuture<T>(oneshot::Receiver<Result<T, AudioKeyError>>);
-impl <T> Future for AudioKeyFuture<T> {
+impl<T> Future for AudioKeyFuture<T> {
     type Item = T;
     type Error = AudioKeyError;
 

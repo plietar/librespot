@@ -29,25 +29,38 @@ mod pulseaudio;
 #[cfg(feature = "pulseaudio-backend")]
 use self::pulseaudio::PulseAudioSink;
 
+#[cfg(feature = "jackaudio-backend")]
+mod jackaudio;
+#[cfg(feature = "jackaudio-backend")]
+use self::jackaudio::JackSink;
+
 mod pipe;
 use self::pipe::StdoutSink;
 
-pub const BACKENDS : &'static [
-    (&'static str, fn(Option<String>) -> Box<Sink>)
-] = &[
+pub const BACKENDS: &'static [(&'static str, fn(Option<String>) -> Box<Sink>)] = &[
     #[cfg(feature = "alsa-backend")]
     ("alsa", mk_sink::<AlsaSink>),
     #[cfg(feature = "portaudio-backend")]
     ("portaudio", mk_sink::<PortAudioSink>),
     #[cfg(feature = "pulseaudio-backend")]
     ("pulseaudio", mk_sink::<PulseAudioSink>),
+    #[cfg(feature = "jackaudio-backend")]
+    ("jackaudio", mk_sink::<JackSink>),
     ("pipe", mk_sink::<StdoutSink>),
 ];
 
 pub fn find(name: Option<String>) -> Option<fn(Option<String>) -> Box<Sink>> {
     if let Some(name) = name {
-        BACKENDS.iter().find(|backend| name == backend.0).map(|backend| backend.1)
+        BACKENDS
+            .iter()
+            .find(|backend| name == backend.0)
+            .map(|backend| backend.1)
     } else {
-        Some(BACKENDS.first().expect("No backends were enabled at build time").1)
+        Some(
+            BACKENDS
+                .first()
+                .expect("No backends were enabled at build time")
+                .1,
+        )
     }
 }

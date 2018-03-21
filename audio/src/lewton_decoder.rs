@@ -2,16 +2,17 @@ extern crate lewton;
 
 use self::lewton::inside_ogg::OggStreamReader;
 
-use std::io::{Read, Seek};
-use std::fmt;
 use std::error;
+use std::fmt;
+use std::io::{Read, Seek};
 
 pub struct VorbisDecoder<R: Read + Seek>(OggStreamReader<R>);
 pub struct VorbisPacket(Vec<i16>);
 pub struct VorbisError(lewton::VorbisError);
 
-impl <R> VorbisDecoder<R>
-    where R: Read + Seek
+impl<R> VorbisDecoder<R>
+where
+    R: Read + Seek,
 {
     pub fn new(input: R) -> Result<VorbisDecoder<R>, VorbisError> {
         Ok(VorbisDecoder(OggStreamReader::new(input)?))
@@ -24,7 +25,9 @@ impl <R> VorbisDecoder<R>
     }
 
     pub fn next_packet(&mut self) -> Result<Option<VorbisPacket>, VorbisError> {
+        use self::lewton::OggReadError::NoCapturePatternFound;
         use self::lewton::VorbisError::BadAudio;
+        use self::lewton::VorbisError::OggError;
         use self::lewton::audio::AudioReadError::AudioIsHeader;
         loop {
             match self.0.read_dec_packet_itl() {
@@ -32,6 +35,7 @@ impl <R> VorbisDecoder<R>
                 Ok(None) => return Ok(None),
 
                 Err(BadAudio(AudioIsHeader)) => (),
+                Err(OggError(NoCapturePatternFound)) => (),
                 Err(err) => return Err(err.into()),
             }
         }
