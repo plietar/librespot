@@ -5,9 +5,7 @@ extern crate getopts;
 extern crate librespot;
 #[macro_use]
 extern crate log;
-extern crate rpassword;
 extern crate tokio_core;
-extern crate tokio_io;
 
 use crypto::digest::Digest;
 use crypto::sha1::Sha1;
@@ -21,7 +19,6 @@ use std::path::PathBuf;
 use std::process::exit;
 use std::str::FromStr;
 use tokio_core::reactor::{Core, Handle};
-use tokio_io::IoStream;
 
 use librespot::core::authentication::{get_credentials, Credentials};
 use librespot::core::cache::Cache;
@@ -232,17 +229,10 @@ fn setup(args: &[String]) -> Setup {
     let credentials = {
         let cached_credentials = cache.as_ref().and_then(Cache::credentials);
 
-        let password = |username: &String| -> String {
-            write!(stderr(), "Password for {}: ", username).unwrap();
-            stderr().flush().unwrap();
-            rpassword::read_password().unwrap()
-        };
-
         get_credentials(
             matches.opt_str("username"),
             matches.opt_str("password"),
             cached_credentials,
-            password,
         )
     };
 
