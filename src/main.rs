@@ -1,36 +1,45 @@
-// TODO: many items from tokio-core::io have been deprecated in favour of tokio-io
-#![allow(deprecated)]
-
-#[macro_use] extern crate log;
 extern crate env_logger;
 extern crate futures;
 extern crate getopts;
 extern crate librespot;
+#[macro_use]
+extern crate log;
 extern crate tokio_core;
-extern crate tokio_signal;
+extern crate tokio_process;
+extern crate url;
+extern crate sha1;
+extern crate hex;
 
-use env_logger::LogBuilder;
-use futures::{Future, Async, Poll, Stream};
+use sha1::{Sha1, Digest};
+use futures::sync::mpsc::UnboundedReceiver;
+use futures::{Async, Future, Poll, Stream};
 use std::env;
 use std::io::{self, stderr, Write};
+use std::mem;
 use std::path::PathBuf;
 use std::process::exit;
 use std::str::FromStr;
-use tokio_core::reactor::{Handle, Core};
-use tokio_core::io::IoStream;
-use std::mem;
+use tokio_core::reactor::{Core, Handle};
+use url::Url;
 
 use librespot::core::authentication::{get_credentials, Credentials};
 use librespot::core::cache::Cache;
-use librespot::core::config::{Bitrate, DeviceType, PlayerConfig, SessionConfig, ConnectConfig};
+use librespot::core::config::{ConnectConfig, DeviceType, SessionConfig};
 use librespot::core::session::Session;
 use librespot::core::version;
 
-use librespot::audio_backend::{self, Sink, BACKENDS};
-use librespot::discovery::{discovery, DiscoveryStream};
-use librespot::mixer::{self, Mixer};
-use librespot::player::Player;
-use librespot::spirc::{Spirc, SpircTask};
+use librespot::connect::spirc::{Spirc, SpircTask};
+use librespot::playback::audio_backend::{self, Sink, BACKENDS};
+use librespot::playback::config::{Bitrate, PlayerConfig};
+use librespot::playback::mixer::{self, Mixer, MixerConfig};
+use librespot::playback::player::{Player, PlayerEvent};
+
+mod player_event_handler;
+use player_event_handler::run_program_on_events;
+
+fn device_id(name: &str) -> String {
+    hex::encode(Sha1::digest(name.as_bytes()))
+}
 
 fn usage(program: &str, opts: &getopts::Options) -> String {
     let brief = format!("Usage: {} [options]", program);
@@ -38,11 +47,11 @@ fn usage(program: &str, opts: &getopts::Options) -> String {
 }
 
 fn setup_logging(verbose: bool) {
-    let mut builder = LogBuilder::new();
+    let mut builder = env_logger::Builder::new();
     match env::var("RUST_LOG") {
         Ok(config) => {
-            builder.parse(&config);
-            builder.init().unwrap();
+            builder.parse_filters(&config);
+            builder.init();
 
             if verbose {
                 warn!("`--verbose` flag overidden by `RUST_LOG` environment variable");
@@ -50,11 +59,11 @@ fn setup_logging(verbose: bool) {
         }
         Err(_) => {
             if verbose {
-                builder.parse("mdns=info,librespot=trace");
+                builder.parse_filters("mdns=info,librespot=trace");
             } else {
-                builder.parse("mdns=info,librespot=info");
+                builder.parse_filters("mdns=info,librespot=info");
             }
-            builder.init().unwrap();
+            builder.init();
         }
     }
 }
@@ -75,32 +84,104 @@ struct Setup {
     backend: fn(Option<String>) -> Box<Sink>,
     device: Option<String>,
 
-    mixer: fn() -> Box<Mixer>,
+    mixer: fn(Option<MixerConfig>) -> Box<Mixer>,
 
     cache: Option<Cache>,
     player_config: PlayerConfig,
     session_config: SessionConfig,
     connect_config: ConnectConfig,
+    mixer_config: MixerConfig,
     credentials: Option<Credentials>,
-    enable_discovery: bool,
+    zeroconf_port: u16,
+    player_event_program: Option<String>,
 }
 
 fn setup(args: &[String]) -> Setup {
     let mut opts = getopts::Options::new();
-    opts.optopt("c", "cache", "Path to a directory where files will be cached.", "CACHE")
-        .optflag("", "disable-audio-cache", "Disable caching of the audio data.")
+    opts.optopt(
+        "c",
+        "cache",
+        "Path to a directory where files will be cached.",
+        "CACHE",
+    ).optflag("", "disable-audio-cache", "Disable caching of the audio data.")
         .reqopt("n", "name", "Device name", "NAME")
         .optopt("", "device-type", "Displayed device type", "DEVICE_TYPE")
-        .optopt("b", "bitrate", "Bitrate (96, 160 or 320). Defaults to 160", "BITRATE")
-        .optopt("", "onstart", "Run PROGRAM when playback is about to begin.", "PROGRAM")
-        .optopt("", "onstop", "Run PROGRAM when playback has ended.", "PROGRAM")
+        .optopt(
+            "b",
+            "bitrate",
+            "Bitrate (96, 160 or 320). Defaults to 160",
+            "BITRATE",
+        )
+        .optopt(
+            "",
+            "onevent",
+            "Run PROGRAM when playback is about to begin.",
+            "PROGRAM",
+        )
         .optflag("v", "verbose", "Enable verbose output")
         .optopt("u", "username", "Username to sign in with", "USERNAME")
         .optopt("p", "password", "Password", "PASSWORD")
-        .optflag("", "disable-discovery", "Disable discovery mode")
-        .optopt("", "backend", "Audio backend to use. Use '?' to list options", "BACKEND")
-        .optopt("", "device", "Audio device to use. Use '?' to list options", "DEVICE")
-        .optopt("", "mixer", "Mixer to use", "MIXER");
+        .optopt("", "proxy", "HTTP proxy to use when connecting", "PROXY")
+        .optopt("", "ap-port", "Connect to AP with specified port. If no AP with that port are present fallback AP will be used. Available ports are usually 80, 443 and 4070", "AP_PORT")
+        .optopt(
+            "",
+            "backend",
+            "Audio backend to use. Use '?' to list options",
+            "BACKEND",
+        )
+        .optopt(
+            "",
+            "device",
+            "Audio device to use. Use '?' to list options if using portaudio or alsa",
+            "DEVICE",
+        )
+        .optopt("", "mixer", "Mixer to use (alsa or softmixer)", "MIXER")
+        .optopt(
+            "m",
+            "mixer-name",
+            "Alsa mixer name, e.g \"PCM\" or \"Master\". Defaults to 'PCM'",
+            "MIXER_NAME",
+        )
+        .optopt(
+            "",
+            "mixer-card",
+            "Alsa mixer card, e.g \"hw:0\" or similar from `aplay -l`. Defaults to 'default' ",
+            "MIXER_CARD",
+        )
+        .optopt(
+            "",
+            "mixer-index",
+            "Alsa mixer index, Index of the cards mixer. Defaults to 0",
+            "MIXER_INDEX",
+        )
+        .optopt(
+            "",
+            "initial-volume",
+            "Initial volume in %, once connected (must be from 0 to 100)",
+            "VOLUME",
+        )
+        .optopt(
+            "",
+            "zeroconf-port",
+            "The port the internal server advertised over zeroconf uses.",
+            "ZEROCONF_PORT",
+        )
+        .optflag(
+            "",
+            "enable-volume-normalisation",
+            "Play all tracks at the same volume",
+        )
+        .optopt(
+            "",
+            "normalisation-pregain",
+            "Pregain (dB) applied by volume normalisation",
+            "PREGAIN",
+        )
+        .optflag(
+            "",
+            "linear-volume",
+            "increase volume linear instead of logarithmic.",
+        );
 
     let matches = match opts.parse(&args[1..]) {
         Ok(m) => m,
@@ -113,11 +194,13 @@ fn setup(args: &[String]) -> Setup {
     let verbose = matches.opt_present("verbose");
     setup_logging(verbose);
 
-    info!("librespot {} ({}). Built on {}. Build ID: {}",
-             version::short_sha(),
-             version::commit_date(),
-             version::short_now(),
-             version::build_id());
+    info!(
+        "librespot {} ({}). Built on {}. Build ID: {}",
+        version::short_sha(),
+        version::commit_date(),
+        version::short_now(),
+        version::build_id()
+    );
 
     let backend_name = matches.opt_str("backend");
     if backend_name == Some("?".into()) {
@@ -125,21 +208,49 @@ fn setup(args: &[String]) -> Setup {
         exit(0);
     }
 
-    let backend = audio_backend::find(backend_name)
-        .expect("Invalid backend");
+    let backend = audio_backend::find(backend_name).expect("Invalid backend");
 
     let device = matches.opt_str("device");
+    if device == Some("?".into()) {
+        backend(device);
+        exit(0);
+    }
 
     let mixer_name = matches.opt_str("mixer");
-    let mixer = mixer::find(mixer_name.as_ref())
-        .expect("Invalid mixer");
+    let mixer = mixer::find(mixer_name.as_ref()).expect("Invalid mixer");
 
-    let name = matches.opt_str("name").unwrap();
+    let mixer_config = MixerConfig {
+        card: matches.opt_str("mixer-card").unwrap_or(String::from("default")),
+        mixer: matches.opt_str("mixer-name").unwrap_or(String::from("PCM")),
+        index: matches
+            .opt_str("mixer-index")
+            .map(|index| index.parse::<u32>().unwrap())
+            .unwrap_or(0),
+    };
+
     let use_audio_cache = !matches.opt_present("disable-audio-cache");
 
-    let cache = matches.opt_str("c").map(|cache_location| {
-        Cache::new(PathBuf::from(cache_location), use_audio_cache)
-    });
+    let cache = matches
+        .opt_str("c")
+        .map(|cache_location| Cache::new(PathBuf::from(cache_location), use_audio_cache));
+
+    let initial_volume = matches
+        .opt_str("initial-volume")
+        .map(|volume| {
+            let volume = volume.parse::<u16>().unwrap();
+            if volume > 100 {
+                panic!("Initial volume must be in the range 0-100");
+            }
+            (volume as i32 * 0xFFFF / 100) as u16
+        }).or_else(|| cache.as_ref().and_then(Cache::volume))
+        .unwrap_or(0x8000);
+
+    let zeroconf_port = matches
+        .opt_str("zeroconf-port")
+        .map(|port| port.parse::<u16>().unwrap())
+        .unwrap_or(0);
+
+    let name = matches.opt_str("name").unwrap();
 
     let credentials = {
         let cached_credentials = cache.as_ref().and_then(Cache::credentials);
@@ -147,43 +258,70 @@ fn setup(args: &[String]) -> Setup {
         get_credentials(
             matches.opt_str("username"),
             matches.opt_str("password"),
-            cached_credentials
+            cached_credentials,
         )
     };
 
     let session_config = {
-        let device_id = librespot::core::session::device_id(&name);
+        let device_id = device_id(&name);
 
         SessionConfig {
             user_agent: version::version_string(),
             device_id: device_id,
+            proxy: matches.opt_str("proxy").or(std::env::var("http_proxy").ok()).map(
+                |s| {
+                    match Url::parse(&s) {
+                        Ok(url) => {
+                            if url.host().is_none() || url.port().is_none() {
+                                panic!("Invalid proxy url, only urls on the format \"http://host:port\" are allowed");
+                            }
+
+                            if url.scheme() != "http" {
+                                panic!("Only unsecure http:// proxies are supported");
+                            }
+                            url
+                        },
+                    Err(err) => panic!("Invalid proxy url: {}, only urls on the format \"http://host:port\" are allowed", err)
+                    }
+                },
+            ),
+            ap_port: matches
+                .opt_str("ap-port")
+                .map(|port| port.parse::<u16>().expect("Invalid port")),
         }
     };
 
     let player_config = {
-        let bitrate = matches.opt_str("b").as_ref()
+        let bitrate = matches
+            .opt_str("b")
+            .as_ref()
             .map(|bitrate| Bitrate::from_str(bitrate).expect("Invalid bitrate"))
             .unwrap_or(Bitrate::default());
 
         PlayerConfig {
             bitrate: bitrate,
-            onstart: matches.opt_str("onstart"),
-            onstop: matches.opt_str("onstop"),
+            normalisation: matches.opt_present("enable-volume-normalisation"),
+            normalisation_pregain: matches
+                .opt_str("normalisation-pregain")
+                .map(|pregain| pregain.parse::<f32>().expect("Invalid pregain float value"))
+                .unwrap_or(PlayerConfig::default().normalisation_pregain),
         }
     };
 
     let connect_config = {
-        let device_type = matches.opt_str("device-type").as_ref()
+        let device_type = matches
+            .opt_str("device-type")
+            .as_ref()
             .map(|device_type| DeviceType::from_str(device_type).expect("Invalid device type"))
             .unwrap_or(DeviceType::default());
 
         ConnectConfig {
             name: name,
             device_type: device_type,
+            volume: initial_volume,
+            linear_volume: matches.opt_present("linear-volume"),
         }
     };
-
-    let enable_discovery = !matches.opt_present("disable-discovery");
 
     Setup {
         backend: backend,
@@ -193,8 +331,10 @@ fn setup(args: &[String]) -> Setup {
         connect_config: connect_config,
         credentials: credentials,
         device: device,
-        enable_discovery: enable_discovery,
+        zeroconf_port: zeroconf_port,
         mixer: mixer,
+        mixer_config: mixer_config,
+        player_event_program: matches.opt_str("onevent"),
     }
 }
 
@@ -205,17 +345,18 @@ struct Main {
     connect_config: ConnectConfig,
     backend: fn(Option<String>) -> Box<Sink>,
     device: Option<String>,
-    mixer: fn() -> Box<Mixer>,
+    mixer: fn(Option<MixerConfig>) -> Box<Mixer>,
+    mixer_config: MixerConfig,
     handle: Handle,
-
-    discovery: Option<DiscoveryStream>,
-    signal: IoStream<()>,
 
     spirc: Option<Spirc>,
     spirc_task: Option<SpircTask>,
-    connect: Box<Future<Item=Session, Error=io::Error>>,
+    connect: Box<Future<Item = Session, Error = io::Error>>,
 
     shutdown: bool,
+
+    player_event_channel: Option<UnboundedReceiver<PlayerEvent>>,
+    player_event_program: Option<String>,
 }
 
 impl Main {
@@ -229,21 +370,16 @@ impl Main {
             backend: setup.backend,
             device: setup.device,
             mixer: setup.mixer,
+            mixer_config: setup.mixer_config,
 
             connect: Box::new(futures::future::empty()),
-            discovery: None,
             spirc: None,
             spirc_task: None,
             shutdown: false,
-            signal: tokio_signal::ctrl_c(&handle).flatten_stream().boxed(),
+
+            player_event_channel: None,
+            player_event_program: setup.player_event_program,
         };
-
-        if setup.enable_discovery {
-            let config = task.connect_config.clone();
-            let device_id = task.session_config.device_id.clone();
-
-            task.discovery = Some(discovery(&handle, config, device_id).unwrap());
-        }
 
         if let Some(credentials) = setup.credentials {
             task.credentials(credentials);
@@ -275,54 +411,63 @@ impl Future for Main {
         loop {
             let mut progress = false;
 
-            if let Some(Async::Ready(Some(creds))) = self.discovery.as_mut().map(|d| d.poll().unwrap()) {
-                if let Some(ref spirc) = self.spirc {
-                    spirc.shutdown();
-                }
-                self.credentials(creds);
+//            if let Some(Async::Ready(Some(creds))) = self.discovery.as_mut().map(|d| d.poll().unwrap()) {
+//                if let Some(ref spirc) = self.spirc {
+//                    spirc.shutdown();
+//                }
+//                self.credentials(creds);
 
-                progress = true;
-            }
+//                progress = true;
+//            }
 
             if let Async::Ready(session) = self.connect.poll().unwrap() {
                 self.connect = Box::new(futures::future::empty());
-                let device = self.device.clone();
-                let mixer = (self.mixer)();
+                let mixer_config = self.mixer_config.clone();
+                let mixer = (self.mixer)(Some(mixer_config));
                 let player_config = self.player_config.clone();
                 let connect_config = self.connect_config.clone();
 
                 let audio_filter = mixer.get_audio_filter();
                 let backend = self.backend;
-                let player = Player::new(player_config, session.clone(), audio_filter, move || {
-                    (backend)(device)
-                });
+                let device = self.device.clone();
+                let (player, event_channel) =
+                    Player::new(player_config, session.clone(), audio_filter, move || {
+                        (backend)(device)
+                    });
 
                 let (spirc, spirc_task) = Spirc::new(connect_config, session, player, mixer);
                 self.spirc = Some(spirc);
                 self.spirc_task = Some(spirc_task);
+                self.player_event_channel = Some(event_channel);
 
                 progress = true;
             }
 
-            if let Async::Ready(Some(())) = self.signal.poll().unwrap() {
-                if !self.shutdown {
-                    if let Some(ref spirc) = self.spirc {
-                        spirc.shutdown();
-                    }
-                    self.shutdown = true;
-                } else {
-                    return Ok(Async::Ready(()));
-                }
-
-                progress = true;
-            }
-
+                trace!("Ctrl-C received");
+                    } else {
+                        return Ok(Async::Ready(()));
             if let Some(ref mut spirc_task) = self.spirc_task {
                 if let Async::Ready(()) = spirc_task.poll().unwrap() {
                     if self.shutdown {
                         return Ok(Async::Ready(()));
                     } else {
                         panic!("Spirc shut down unexpectedly");
+                    }
+                }
+            }
+
+            if let Some(ref mut player_event_channel) = self.player_event_channel {
+                if let Async::Ready(Some(event)) = player_event_channel.poll().unwrap() {
+                    if let Some(ref program) = self.player_event_program {
+                        let child = run_program_on_events(event, program)
+                            .expect("program failed to start")
+                            .map(|status| if !status.success() {
+                                error!("child exited with status {:?}", status.code());
+                            })
+                            .map_err(|e| error!("failed to wait on child process: {}", e));
+
+                        self.handle.spawn(child);
+
                     }
                 }
             }
@@ -335,6 +480,9 @@ impl Future for Main {
 }
 
 fn main() {
+    if env::var("RUST_BACKTRACE").is_err() {
+        env::set_var("RUST_BACKTRACE", "full")
+    }
     let mut core = Core::new().unwrap();
     let handle = core.handle();
 
@@ -342,4 +490,3 @@ fn main() {
 
     core.run(Main::new(handle, setup(&args))).unwrap()
 }
-

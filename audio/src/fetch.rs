@@ -1,17 +1,17 @@
 use bit_set::BitSet;
-use byteorder::{ByteOrder, BigEndian, WriteBytesExt};
+use byteorder::{BigEndian, ByteOrder, WriteBytesExt};
+use futures::sync::{mpsc, oneshot};
 use futures::Stream;
-use futures::sync::{oneshot, mpsc};
-use futures::{Poll, Async, Future};
+use futures::{Async, Future, Poll};
 use std::cmp::min;
 use std::fs;
-use std::io::{self, Read, Write, Seek, SeekFrom};
+use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::sync::{Arc, Condvar, Mutex};
 use tempfile::NamedTempFile;
 
 use core::channel::{Channel, ChannelData, ChannelError, ChannelHeaders};
 use core::session::Session;
-use core::util::FileId;
+use core::spotify_id::FileId;
 
 const CHUNK_SIZE: usize = 0x20000;
 
@@ -61,7 +61,7 @@ impl AudioFileOpenStreaming {
         });
 
         let mut write_file = NamedTempFile::new().unwrap();
-        write_file.set_len(size as u64).unwrap();
+        write_file.as_file().set_len(size as u64).unwrap();
         write_file.seek(SeekFrom::Start(0)).unwrap();
 
         let read_file = write_file.reopen().unwrap();
@@ -71,7 +71,12 @@ impl AudioFileOpenStreaming {
         let (seek_tx, seek_rx) = mpsc::unbounded();
 
         let fetcher = AudioFileFetch::new(
-            self.session.clone(), shared.clone(), data_rx, write_file, seek_rx, complete_tx
+            self.session.clone(),
+            shared.clone(),
+            data_rx,
+            write_file,
+            seek_rx,
+            complete_tx,
         );
         self.session.spawn(move |_| fetcher);
 
@@ -97,7 +102,7 @@ impl Future for AudioFileOpen {
                 Ok(Async::Ready(AudioFile::Streaming(file)))
             }
             AudioFileOpen::Cached(ref mut file) => {
-                let file = file.take().unwrap();
+                let file = file.take().expect("cached file taken");
                 Ok(Async::Ready(AudioFile::Cached(file)))
             }
         }
@@ -110,12 +115,12 @@ impl Future for AudioFileOpenStreaming {
 
     fn poll(&mut self) -> Poll<AudioFileStreaming, ChannelError> {
         loop {
-            let (id, data) = try_ready!(self.headers.poll()).unwrap();
+            let (id, data) = try_ready!(self.headers.poll()).expect("headers from audio file streaming");
 
             if id == 0x3 {
                 let size = BigEndian::read_u32(&data) as usize * 4;
                 let file = self.finish(size);
-                
+
                 return Ok(Async::Ready(file));
             }
         }
@@ -148,14 +153,16 @@ impl AudioFile {
 
         let session_ = session.clone();
         session.spawn(move |_| {
-            complete_rx.map(move |mut file| {
-                if let Some(cache) = session_.cache() {
-                    cache.save_file(file_id, &mut file);
-                    debug!("File {} complete, saving to cache", file_id);
-                } else {
-                    debug!("File {} complete", file_id);
-                }
-            }).or_else(|oneshot::Canceled| Ok(()))
+            complete_rx
+                .map(move |mut file| {
+                    if let Some(cache) = session_.cache() {
+                        cache.save_file(file_id, &mut file);
+                        debug!("File {} complete, saving to cache", file_id);
+                    } else {
+                        debug!("File {} complete", file_id);
+                    }
+                })
+                .or_else(|oneshot::Canceled| Ok(()))
         });
 
         AudioFileOpen::Streaming(open)
@@ -171,16 +178,16 @@ fn request_chunk(session: &Session, file: FileId, index: usize) -> Channel {
     let (id, channel) = session.channel().allocate();
 
     let mut data: Vec<u8> = Vec::new();
-    data.write_u16::<BigEndian>(id).unwrap();
-    data.write_u8(0).unwrap();
-    data.write_u8(1).unwrap();
-    data.write_u16::<BigEndian>(0x0000).unwrap();
-    data.write_u32::<BigEndian>(0x00000000).unwrap();
-    data.write_u32::<BigEndian>(0x00009C40).unwrap();
-    data.write_u32::<BigEndian>(0x00020000).unwrap();
-    data.write(&file.0).unwrap();
-    data.write_u32::<BigEndian>(start).unwrap();
-    data.write_u32::<BigEndian>(end).unwrap();
+    data.write_u16::<BigEndian>(id).expect("writing data");
+    data.write_u8(0).expect("writing data");
+    data.write_u8(1).expect("writing data");
+    data.write_u16::<BigEndian>(0x0000).expect("writing data");
+    data.write_u32::<BigEndian>(0x00000000).expect("writing data");
+    data.write_u32::<BigEndian>(0x00009C40).expect("writing data");
+    data.write_u32::<BigEndian>(0x00020000).expect("writing data");
+    data.write(&file.0).expect("writing data");
+    data.write_u32::<BigEndian>(start).expect("writing data");
+    data.write_u32::<BigEndian>(end).expect("writing data");
 
     session.send_packet(0x8, data);
 
@@ -200,11 +207,14 @@ struct AudioFileFetch {
 }
 
 impl AudioFileFetch {
-    fn new(session: Session, shared: Arc<AudioFileShared>,
-           data_rx: ChannelData, output: NamedTempFile,
-           seek_rx: mpsc::UnboundedReceiver<u64>,
-           complete_tx: oneshot::Sender<NamedTempFile>) -> AudioFileFetch
-    {
+    fn new(
+        session: Session,
+        shared: Arc<AudioFileShared>,
+        data_rx: ChannelData,
+        output: NamedTempFile,
+        seek_rx: mpsc::UnboundedReceiver<u64>,
+        complete_tx: oneshot::Sender<NamedTempFile>,
+    ) -> AudioFileFetch {
         AudioFileFetch {
             session: session,
             shared: shared,
@@ -222,7 +232,7 @@ impl AudioFileFetch {
         assert!(new_index < self.shared.chunk_count);
 
         {
-            let bitmap = self.shared.bitmap.lock().unwrap();
+            let bitmap = self.shared.bitmap.lock().expect("lock shared bitmap");
             while bitmap.contains(new_index) {
                 new_index = (new_index + 1) % self.shared.chunk_count;
             }
@@ -233,8 +243,11 @@ impl AudioFileFetch {
 
             let offset = self.index * CHUNK_SIZE;
 
-            self.output.as_mut().unwrap()
-                .seek(SeekFrom::Start(offset as u64)).unwrap();
+            self.output
+                .as_mut()
+                .unwrap()
+                .seek(SeekFrom::Start(offset as u64))
+                .unwrap();
 
             let (_headers, data) = request_chunk(&self.session, self.shared.file_id, self.index).split();
             self.data_rx = data;
@@ -242,10 +255,10 @@ impl AudioFileFetch {
     }
 
     fn finish(&mut self) {
-        let mut output = self.output.take().unwrap();
-        let complete_tx = self.complete_tx.take().unwrap();
+        let mut output = self.output.take().expect("output taken");
+        let complete_tx = self.complete_tx.take().expect("complete tx taken");
 
-        output.seek(SeekFrom::Start(0)).unwrap();
+        output.seek(SeekFrom::Start(0)).expect("output seek start");
         let _ = complete_tx.send(output);
     }
 }
@@ -275,16 +288,15 @@ impl Future for AudioFileFetch {
                 Ok(Async::Ready(Some(data))) => {
                     progress = true;
 
-                    self.output.as_mut().unwrap()
-                        .write_all(data.as_ref()).unwrap();
+                    self.output.as_mut().unwrap().write_all(data.as_ref()).unwrap();
                 }
-                 Ok(Async::Ready(None)) => {
+                Ok(Async::Ready(None)) => {
                     progress = true;
 
                     trace!("chunk {} / {} complete", self.index, self.shared.chunk_count);
 
                     let full = {
-                        let mut bitmap = self.shared.bitmap.lock().unwrap();
+                        let mut bitmap = self.shared.bitmap.lock().expect("shared bitmap locked");
                         bitmap.insert(self.index as usize);
                         self.shared.cond.notify_all();
 
@@ -303,7 +315,7 @@ impl Future for AudioFileFetch {
                 Err(ChannelError) => {
                     warn!("error from channel");
                     return Ok(Async::Ready(()));
-                },
+                }
             }
 
             if !progress {
@@ -319,9 +331,9 @@ impl Read for AudioFileStreaming {
         let offset = self.position as usize % CHUNK_SIZE;
         let len = min(output.len(), CHUNK_SIZE - offset);
 
-        let mut bitmap = self.shared.bitmap.lock().unwrap();
+        let mut bitmap = self.shared.bitmap.lock().expect("shared bitmap locked");
         while !bitmap.contains(index) {
-            bitmap = self.shared.cond.wait(bitmap).unwrap();
+            bitmap = self.shared.cond.wait(bitmap).expect("shared cond wait");
         }
         drop(bitmap);
 
@@ -336,11 +348,16 @@ impl Read for AudioFileStreaming {
 impl Seek for AudioFileStreaming {
     fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
         self.position = try!(self.read_file.seek(pos));
+        // Do not seek past EOF
+        if (self.position as usize % CHUNK_SIZE) != 0  {
+            // Notify the fetch thread to get the correct block
+            // This can fail if fetch thread has completed, in which case the
+            // block is ready. Just ignore the error.
+            let _ = self.seek.unbounded_send(self.position);
+        } else {
+            warn!("Trying to seek past EOF");
+        }
 
-        // Notify the fetch thread to get the correct block
-        // This can fail if fetch thread has completed, in which case the
-        // block is ready. Just ignore the error.
-        let _ = self.seek.send(self.position);
         Ok(self.position)
     }
 }

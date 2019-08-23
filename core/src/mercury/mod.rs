@@ -1,11 +1,11 @@
 use byteorder::{BigEndian, ByteOrder};
-use futures::sync::{oneshot, mpsc};
-use futures::{Async, Poll, BoxFuture, Future};
+use bytes::Bytes;
+use futures::sync::{mpsc, oneshot};
+use futures::{Async, Future, Poll};
 use protobuf;
 use protocol;
 use std::collections::HashMap;
 use std::mem;
-use tokio_core::io::EasyBuf;
 
 use util::SeqGenerator;
 
@@ -30,7 +30,7 @@ pub struct MercuryPending {
 }
 
 pub struct MercuryFuture<T>(oneshot::Receiver<Result<T, MercuryError>>);
-impl <T> Future for MercuryFuture<T> {
+impl<T> Future for MercuryFuture<T> {
     type Item = T;
     type Error = MercuryError;
 
@@ -51,9 +51,7 @@ impl MercuryManager {
         seq
     }
 
-    pub fn request(&self, req: MercuryRequest)
-        -> MercuryFuture<MercuryResponse>
-    {
+    fn request(&self, req: MercuryRequest) -> MercuryFuture<MercuryResponse> {
         let (tx, rx) = oneshot::channel();
 
         let pending = MercuryPending {
@@ -72,9 +70,7 @@ impl MercuryManager {
         MercuryFuture(rx)
     }
 
-    pub fn get<T: Into<String>>(&self, uri: T)
-        -> MercuryFuture<MercuryResponse>
-    {
+    pub fn get<T: Into<String>>(&self, uri: T) -> MercuryFuture<MercuryResponse> {
         self.request(MercuryRequest {
             method: MercuryMethod::GET,
             uri: uri.into(),
@@ -83,9 +79,7 @@ impl MercuryManager {
         })
     }
 
-    pub fn send<T: Into<String>>(&self, uri: T, data: Vec<u8>)
-        -> MercuryFuture<MercuryResponse>
-    {
+    pub fn send<T: Into<String>>(&self, uri: T, data: Vec<u8>) -> MercuryFuture<MercuryResponse> {
         self.request(MercuryRequest {
             method: MercuryMethod::SEND,
             uri: uri.into(),
@@ -98,9 +92,10 @@ impl MercuryManager {
         MercurySender::new(self.clone(), uri.into())
     }
 
-    pub fn subscribe<T: Into<String>>(&self, uri: T)
-        -> BoxFuture<mpsc::UnboundedReceiver<MercuryResponse>, MercuryError>
-    {
+    pub fn subscribe<T: Into<String>>(
+        &self,
+        uri: T,
+    ) -> Box<Future<Item = mpsc::UnboundedReceiver<MercuryResponse>, Error = MercuryError>> {
         let uri = uri.into();
         let request = self.request(MercuryRequest {
             method: MercuryMethod::SUB,
@@ -110,7 +105,7 @@ impl MercuryManager {
         });
 
         let manager = self.clone();
-        request.map(move |response| {
+        Box::new(request.map(move |response| {
             let (tx, rx) = mpsc::unbounded();
 
             manager.lock(move |inner| {
@@ -118,8 +113,8 @@ impl MercuryManager {
                 if response.payload.len() > 0 {
                     // Old subscription protocol, watch the provided list of URIs
                     for sub in response.payload {
-                        let mut sub : protocol::pubsub::Subscription
-                            = protobuf::parse_from_bytes(&sub).unwrap();
+                        let mut sub: protocol::pubsub::Subscription =
+                            protobuf::parse_from_bytes(&sub).unwrap();
                         let sub_uri = sub.take_uri();
 
                         debug!("subscribed sub_uri={}", sub_uri);
@@ -133,27 +128,25 @@ impl MercuryManager {
             });
 
             rx
-        }).boxed()
+        }))
     }
 
-    pub fn dispatch(&self, cmd: u8, mut data: EasyBuf) {
-        let seq_len = BigEndian::read_u16(data.drain_to(2).as_ref()) as usize;
-        let seq = data.drain_to(seq_len).as_ref().to_owned();
+    pub(crate) fn dispatch(&self, cmd: u8, mut data: Bytes) {
+        let seq_len = BigEndian::read_u16(data.split_to(2).as_ref()) as usize;
+        let seq = data.split_to(seq_len).as_ref().to_owned();
 
-        let flags = data.drain_to(1).as_ref()[0];
-        let count = BigEndian::read_u16(data.drain_to(2).as_ref()) as usize;
+        let flags = data.split_to(1).as_ref()[0];
+        let count = BigEndian::read_u16(data.split_to(2).as_ref()) as usize;
 
         let pending = self.lock(|inner| inner.pending.remove(&seq));
 
         let mut pending = match pending {
             Some(pending) => pending,
-            None if cmd == 0xb5 => {
-                MercuryPending {
-                    parts: Vec::new(),
-                    partial: None,
-                    callback: None,
-                }
-            }
+            None if cmd == 0xb5 => MercuryPending {
+                parts: Vec::new(),
+                partial: None,
+                callback: None,
+            },
             None => {
                 warn!("Ignore seq {:?} cmd {:x}", seq, cmd);
                 return;
@@ -181,9 +174,9 @@ impl MercuryManager {
         }
     }
 
-    fn parse_part(data: &mut EasyBuf) -> Vec<u8> {
-        let size = BigEndian::read_u16(data.drain_to(2).as_ref()) as usize;
-        data.drain_to(size).as_ref().to_owned()
+    fn parse_part(data: &mut Bytes) -> Vec<u8> {
+        let size = BigEndian::read_u16(data.split_to(2).as_ref()) as usize;
+        data.split_to(size).as_ref().to_owned()
     }
 
     fn complete_request(&self, cmd: u8, mut pending: MercuryPending) {
@@ -196,10 +189,12 @@ impl MercuryManager {
             payload: pending.parts,
         };
 
-        if response.status_code >= 400 {
+        if response.status_code >= 500 {
+            panic!("Spotify servers returned an error. Restart librespot.");
+        } else if response.status_code >= 400 {
             warn!("error {} for uri {}", response.status_code, &response.uri);
             if let Some(cb) = pending.callback {
-                cb.complete(Err(MercuryError));
+                let _ = cb.send(Err(MercuryError));
             }
         } else {
             if cmd == 0xb5 {
@@ -211,7 +206,7 @@ impl MercuryManager {
 
                             // if send fails, remove from list of subs
                             // TODO: send unsub message
-                            sub.send(response.clone()).is_ok()
+                            sub.unbounded_send(response.clone()).is_ok()
                         } else {
                             // URI doesn't match
                             true
@@ -223,7 +218,7 @@ impl MercuryManager {
                     }
                 })
             } else if let Some(cb) = pending.callback {
-                cb.complete(Ok(response));
+                let _ = cb.send(Ok(response));
             }
         }
     }
