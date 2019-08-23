@@ -1,17 +1,34 @@
+extern crate protobuf_codegen_pure;
+use protobuf_codegen_pure::Customize;
 use std::fs::File;
 use std::io::prelude::*;
 
 mod files;
 
 fn main() {
+    let mut changed = false;
+    let mut file = File::open("files.rs").unwrap();
+    let mut f_str = String::new();
+    file.read_to_string(&mut f_str).unwrap();
+    drop(file);
     for &(path, expected_checksum) in files::FILES {
         let actual = cksum_file(path).unwrap();
         if expected_checksum != actual {
-            panic!(
-                "Checksum for {:?} does not match. Try running build.sh",
-                path
-            );
+            protobuf_codegen_pure::run(protobuf_codegen_pure::Args {
+                out_dir: "src",
+                input: &[path],
+                includes: &["proto"],
+                customize: Customize { ..Default::default() },
+            }).expect("protoc");
+            let new_checksum = cksum_file(path).unwrap();
+            f_str = f_str.replace(&expected_checksum.to_string(), &new_checksum.to_string());
+            changed = true;
         }
+    }
+    if changed {
+        // Write new checksums to file
+        let mut file = File::create("files.rs").unwrap();
+        file.write_all(f_str.as_bytes()).unwrap();
     }
 }
 

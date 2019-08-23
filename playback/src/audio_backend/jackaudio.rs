@@ -1,6 +1,8 @@
 use super::{Open, Sink};
-use jack::prelude::{client_options, AsyncClient, AudioOutPort, AudioOutSpec, Client, JackControl, Port,
-                    ProcessHandler, ProcessScope};
+use jack::prelude::{
+    client_options, AsyncClient, AudioOutPort, AudioOutSpec, Client, JackControl, Port, ProcessHandler,
+    ProcessScope,
+};
 use std::io;
 use std::sync::mpsc::{sync_channel, Receiver, SyncSender};
 
@@ -16,7 +18,7 @@ pub struct JackData {
 }
 
 fn pcm_to_f32(sample: i16) -> f32 {
-    sample as f32 / 32768.0;
+    sample as f32 / 32768.0
 }
 
 impl ProcessHandler for JackData {
@@ -44,12 +46,8 @@ impl Open for JackSink {
 
         let client_name = client_name.unwrap_or("librespot".to_string());
         let (client, _status) = Client::new(&client_name[..], client_options::NO_START_SERVER).unwrap();
-        let ch_r = client
-            .register_port("out_0", AudioOutSpec::default())
-            .unwrap();
-        let ch_l = client
-            .register_port("out_1", AudioOutSpec::default())
-            .unwrap();
+        let ch_r = client.register_port("out_0", AudioOutSpec::default()).unwrap();
+        let ch_l = client.register_port("out_1", AudioOutSpec::default()).unwrap();
         // buffer for samples from librespot (~10ms)
         let (tx, rx) = sync_channel(2 * 1024 * 4);
         let jack_data = JackData {

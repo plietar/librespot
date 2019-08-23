@@ -45,7 +45,7 @@ impl Encoder for APCodec {
 
         buf.reserve(3 + payload.len());
         buf.put_u8(cmd);
-        buf.put_u16::<BigEndian>(payload.len() as u16);
+        buf.put_u16_be(payload.len() as u16);
         buf.extend_from_slice(&payload);
 
         self.encode_cipher.nonce_u32(self.encode_nonce);
@@ -88,8 +88,7 @@ impl Decoder for APCodec {
 
                 let mut payload = buf.split_to(size + MAC_SIZE);
 
-                self.decode_cipher
-                    .decrypt(&mut payload.get_mut(..size).unwrap());
+                self.decode_cipher.decrypt(&mut payload.get_mut(..size).unwrap());
                 let mac = payload.split_off(size);
                 self.decode_cipher.check_mac(mac.as_ref())?;
 

@@ -25,10 +25,10 @@ where
     }
 
     pub fn next_packet(&mut self) -> Result<Option<VorbisPacket>, VorbisError> {
+        use self::lewton::audio::AudioReadError::AudioIsHeader;
         use self::lewton::OggReadError::NoCapturePatternFound;
         use self::lewton::VorbisError::BadAudio;
         use self::lewton::VorbisError::OggError;
-        use self::lewton::audio::AudioReadError::AudioIsHeader;
         loop {
             match self.0.read_dec_packet_itl() {
                 Ok(Some(packet)) => return Ok(Some(VorbisPacket(packet))),
@@ -75,7 +75,7 @@ impl error::Error for VorbisError {
         error::Error::description(&self.0)
     }
 
-    fn cause(&self) -> Option<&error::Error> {
-        error::Error::cause(&self.0)
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        error::Error::source(&self.0)
     }
 }

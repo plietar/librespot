@@ -1,25 +1,29 @@
+use std::io;
+use std::sync::{Arc, RwLock, Weak};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::time::{SystemTime, UNIX_EPOCH};
+
+use byteorder::{BigEndian, ByteOrder};
 use bytes::Bytes;
 use futures::{Async, Future, IntoFuture, Poll, Stream};
 use futures::sync::mpsc;
-use std::io;
-use std::sync::{Arc, RwLock, Weak};
-use std::sync::atomic::{AtomicUsize, Ordering, ATOMIC_USIZE_INIT};
 use tokio_core::reactor::{Handle, Remote};
 
 use apresolve::apresolve_or_fallback;
+use audio_key::AudioKeyManager;
 use authentication::Credentials;
 use cache::Cache;
+use channel::ChannelManager;
 use component::Lazy;
 use config::SessionConfig;
 use connection;
-
-use audio_key::AudioKeyManager;
-use channel::ChannelManager;
 use mercury::MercuryManager;
 
 struct SessionData {
     country: String,
+    time_delta: i64,
     canonical_username: String,
+    invalid: bool,
 }
 
 struct SessionInternal {
@@ -38,7 +42,7 @@ struct SessionInternal {
     session_id: usize,
 }
 
-static SESSION_COUNTER: AtomicUsize = ATOMIC_USIZE_INIT;
+static SESSION_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
 #[derive(Clone)]
 pub struct Session(Arc<SessionInternal>);
@@ -50,12 +54,13 @@ impl Session {
         cache: Option<Cache>,
         handle: Handle,
     ) -> Box<Future<Item = Session, Error = io::Error>> {
-        let access_point = apresolve_or_fallback::<io::Error>(&handle);
+        let access_point = apresolve_or_fallback::<io::Error>(&handle, &config.proxy, &config.ap_port);
 
         let handle_ = handle.clone();
+        let proxy = config.proxy.clone();
         let connection = access_point.and_then(move |addr| {
             info!("Connecting to AP \"{}\"", addr);
-            connection::connect::<&str>(&addr, &handle_)
+            connection::connect(addr, &handle_, &proxy)
         });
 
         let device_id = config.device_id.clone();
@@ -76,7 +81,9 @@ impl Session {
                 reusable_credentials.username.clone(),
             );
 
-            handle.spawn(task.map_err(|e| panic!(e)));
+            handle.spawn(task.map_err(|e| {
+                error!("{:?}", e);
+            }));
 
             session
         });
@@ -103,6 +110,8 @@ impl Session {
             data: RwLock::new(SessionData {
                 country: String::new(),
                 canonical_username: username,
+                invalid: false,
+                time_delta: 0,
             }),
 
             tx_connection: sender_tx,
@@ -124,11 +133,7 @@ impl Session {
             .map(|_| ());
         let receiver_task = DispatchTask(stream, session.weak());
 
-        let task = Box::new(
-            (receiver_task, sender_task)
-                .into_future()
-                .map(|((), ())| ()),
-        );
+        let task = Box::new((receiver_task, sender_task).into_future().map(|((), ())| ()));
 
         (session, task)
     }
@@ -143,6 +148,10 @@ impl Session {
 
     pub fn mercury(&self) -> &MercuryManager {
         self.0.mercury.get(|| MercuryManager::new(self.weak()))
+    }
+
+    pub fn time_delta(&self) -> i64 {
+        self.0.data.read().unwrap().time_delta
     }
 
     pub fn spawn<F, R>(&self, f: F)
@@ -167,8 +176,17 @@ impl Session {
     fn dispatch(&self, cmd: u8, data: Bytes) {
         match cmd {
             0x4 => {
+                let server_timestamp = BigEndian::read_u32(data.as_ref()) as i64;
+                let timestamp = match SystemTime::now().duration_since(UNIX_EPOCH) {
+                    Ok(dur) => dur,
+                    Err(err) => err.duration(),
+                }
+                .as_secs() as i64;
+
+                self.0.data.write().unwrap().time_delta = server_timestamp - timestamp;
+
                 self.debug_info();
-                self.send_packet(0x49, data.as_ref().to_owned());
+                self.send_packet(0x49, vec![0, 0, 0, 0]);
             }
             0x4a => (),
             0x1b => {
@@ -215,6 +233,15 @@ impl Session {
     pub fn session_id(&self) -> usize {
         self.0.session_id
     }
+
+    pub fn shutdown(&self) {
+        debug!("Invalidating session[{}]", self.0.session_id);
+        self.0.data.write().unwrap().invalid = true;
+    }
+
+    pub fn is_invalid(&self) -> bool {
+        self.0.data.read().unwrap().invalid
+    }
 }
 
 #[derive(Clone)]
@@ -243,6 +270,7 @@ where
 impl<S> Future for DispatchTask<S>
 where
     S: Stream<Item = (u8, Bytes)>,
+    <S as Stream>::Error: ::std::fmt::Debug,
 {
     type Item = ();
     type Error = S::Error;
@@ -254,7 +282,15 @@ where
         };
 
         loop {
-            let (cmd, data) = try_ready!(self.0.poll()).expect("connection closed");
+            let (cmd, data) = match self.0.poll() {
+                Ok(Async::Ready(t)) => t,
+                Ok(Async::NotReady) => return Ok(Async::NotReady),
+                Err(e) => {
+                    session.shutdown();
+                    return Err(From::from(e));
+                }
+            }.expect("connection closed");
+
             session.dispatch(cmd, data);
         }
     }

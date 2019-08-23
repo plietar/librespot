@@ -1,8 +1,8 @@
 use bit_set::BitSet;
 use byteorder::{BigEndian, ByteOrder, WriteBytesExt};
-use futures::{Async, Future, Poll};
-use futures::Stream;
 use futures::sync::{mpsc, oneshot};
+use futures::Stream;
+use futures::{Async, Future, Poll};
 use std::cmp::min;
 use std::fs;
 use std::io::{self, Read, Seek, SeekFrom, Write};
@@ -60,14 +60,14 @@ impl AudioFileOpenStreaming {
             bitmap: Mutex::new(BitSet::with_capacity(chunk_count)),
         });
 
-        let mut write_file = NamedTempFile::new().expect("new named file");
-        write_file.set_len(size as u64).expect("file length set");
-        write_file.seek(SeekFrom::Start(0)).expect("seek to start");
+        let mut write_file = NamedTempFile::new().unwrap();
+        write_file.as_file().set_len(size as u64).unwrap();
+        write_file.seek(SeekFrom::Start(0)).unwrap();
 
-        let read_file = write_file.reopen().expect("reopened file");
+        let read_file = write_file.reopen().unwrap();
 
-        let data_rx = self.data_rx.take().expect("rx data taken");
-        let complete_tx = self.complete_tx.take().expect("complete tx taken");
+        let data_rx = self.data_rx.take().unwrap();
+        let complete_tx = self.complete_tx.take().unwrap();
         let (seek_tx, seek_rx) = mpsc::unbounded();
 
         let fetcher = AudioFileFetch::new(
@@ -288,20 +288,12 @@ impl Future for AudioFileFetch {
                 Ok(Async::Ready(Some(data))) => {
                     progress = true;
 
-                    self.output
-                        .as_mut()
-                        .unwrap()
-                        .write_all(data.as_ref())
-                        .unwrap();
+                    self.output.as_mut().unwrap().write_all(data.as_ref()).unwrap();
                 }
                 Ok(Async::Ready(None)) => {
                     progress = true;
 
-                    trace!(
-                        "chunk {} / {} complete",
-                        self.index,
-                        self.shared.chunk_count
-                    );
+                    trace!("chunk {} / {} complete", self.index, self.shared.chunk_count);
 
                     let full = {
                         let mut bitmap = self.shared.bitmap.lock().expect("shared bitmap locked");
@@ -356,11 +348,16 @@ impl Read for AudioFileStreaming {
 impl Seek for AudioFileStreaming {
     fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
         self.position = try!(self.read_file.seek(pos));
+        // Do not seek past EOF
+        if (self.position as usize % CHUNK_SIZE) != 0  {
+            // Notify the fetch thread to get the correct block
+            // This can fail if fetch thread has completed, in which case the
+            // block is ready. Just ignore the error.
+            let _ = self.seek.unbounded_send(self.position);
+        } else {
+            warn!("Trying to seek past EOF");
+        }
 
-        // Notify the fetch thread to get the correct block
-        // This can fail if fetch thread has completed, in which case the
-        // block is ready. Just ignore the error.
-        let _ = self.seek.unbounded_send(self.position);
         Ok(self.position)
     }
 }
